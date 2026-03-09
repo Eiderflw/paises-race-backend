@@ -34,7 +34,25 @@ if (process.env.EULER_API_KEY) {
     console.warn('[EULER] ⚠️  No hay EULER_API_KEY en .env - conexión básica habilitada');
 }
 // ─────────────────────────────────────────────────────────────────────────────
+// ─── HISTORIAL DE CONEXIONES ─────────────────────────────────────────────────
+const connectionHistory = [];
+const MAX_HISTORY = 100;
 
+function logConnection(username, type, status, errorMsg = null) {
+    const timestamp = new Date().toISOString();
+    const logEntry = { timestamp, username, type, status, errorMsg };
+    
+    connectionHistory.unshift(logEntry); // Agregar al inicio
+    if (connectionHistory.length > MAX_HISTORY) {
+        connectionHistory.pop(); // Mantener solo los últimos 100
+    }
+}
+
+// Endpoint para el panel de administración
+app.get('/api/admin/history', (req, res) => {
+    res.json(connectionHistory);
+});
+// ─────────────────────────────────────────────────────────────────────────────
 // ─── BASE DE DATOS DE REGALOS ─────────────────────────────────────────────────
 const GIFTS_DB_PATH = path.join(__dirname, 'gifts', 'gifts_database.json');
 const GIFTS_IMG_DIR = path.join(__dirname, 'gifts', 'images');
@@ -316,7 +334,9 @@ async function connectToTikTokPersistent(username, manual = false) {
         const result = await tryConnect({ ...BASE_CONFIG, connectWithUniqueId: false });
         connector = result.connector;
         roomState = result.roomState;
+        logConnection(username, 'native', 'success');
     } catch (err1) {
+        logConnection(username, 'native', 'failed', err1.message);
         console.log(`[TikTok] ⚠️ Fallo inicial nativo (@${username}): ${err1.message}`);
         
         // ─── EULER FALLBACK ───
@@ -326,8 +346,10 @@ async function connectToTikTokPersistent(username, manual = false) {
                 const result = await tryConnect({ ...BASE_CONFIG, connectWithUniqueId: false, signApiKey: process.env.EULER_API_KEY });
                 connector = result.connector;
                 roomState = result.roomState;
+                logConnection(username, 'euler', 'success');
                 console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Euler Stream Bypass`);
             } catch (err2) {
+                logConnection(username, 'euler', 'failed', err2.message);
                 console.error(`[TikTok] ❌ Fallo Euler (@${username}): ${err2.message}`);
                 handleConnectionError(err2.message);
                 return;

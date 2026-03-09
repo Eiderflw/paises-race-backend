@@ -317,22 +317,21 @@ async function connectToTikTokPersistent(username, manual = false) {
         connector = result.connector;
         roomState = result.roomState;
     } catch (err1) {
-        console.log(`[TikTok] ⚠️  Fallo nativo (@${username}): ${err1.message}`);
-
-        if (process.env.EULER_API_KEY) {
-            try {
-                const result = await tryConnect({ ...BASE_CONFIG, connectWithUniqueId: false, signApiKey: process.env.EULER_API_KEY });
-                connector = result.connector;
-                roomState = result.roomState;
-            } catch (err2) {
-                console.error(`[TikTok] ❌ Fallo Euler (@${username}): ${err2.message}`);
-                scheduleReconnect(username);
-                return;
-            }
-        } else {
-            scheduleReconnect(username);
-            return;
+        console.log(`[TikTok] ⚠️ Fallo inicial (@${username}): ${err1.message}`);
+        
+        let errMsg = err1.message || 'Error de conexión';
+        if (errMsg.includes('room_id') || errMsg.includes('user') || errMsg.includes('invalid') || errMsg.includes('undefined')) {
+             errMsg = 'El usuario no está en vivo o no existe. Verifica el usuario.';
+             // No insistir mucho si no está en vivo
+             session.maxReconnectAttempts = 3; 
         }
+
+        broadcastToUserRoom(username, 'tiktok:status', { connected: false, error: errMsg });
+        
+        if (!session.stopping) {
+            scheduleReconnect(username);
+        }
+        return;
     }
 
     // Éxito

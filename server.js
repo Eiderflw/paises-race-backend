@@ -1,4 +1,4 @@
-﻿const { TikTokLiveConnection } = require('tiktok-live-connector');
+const { TikTokLiveConnection } = require('tiktok-live-connector');
 const { Server } = require('socket.io');
 const express = require('express');
 const cors = require('cors');
@@ -414,6 +414,11 @@ io.on('connection', (socket) => {
         }
         sessions.delete(socket.id);
         console.log(`[WS] 🔴 Cliente desconectado: ${socket.id}`);
+    });
+
+    // Mantener la conexión viva en Render
+    socket.on('ping', () => {
+        socket.emit('pong');
     });
 });
 

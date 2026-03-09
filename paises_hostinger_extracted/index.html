@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -336,18 +336,18 @@
 
     .runner.super-saiyan {
       opacity: 1;
-      filter: drop-shadow(0 0 15px #facc15) drop-shadow(0 0 25px #fb923c) brightness(1.5);
+      filter: drop-shadow(0 0 8px #facc15) drop-shadow(0 0 15px #fb923c) brightness(1.2);
       animation: saiyanAura 0.3s infinite alternate;
-      transform: translateY(-50%) scale(1.6);
+      transform: translateY(-50%) scale(1.2);
     }
 
     @keyframes saiyanAura {
       0% {
-        filter: drop-shadow(0 0 15px #facc15) drop-shadow(0 0 25px #fb923c) brightness(1.5);
+        filter: drop-shadow(0 0 8px #facc15) drop-shadow(0 0 15px #fb923c) brightness(1.2);
       }
 
       100% {
-        filter: drop-shadow(0 0 25px #facc15) drop-shadow(0 0 35px #ef4444) brightness(1.8);
+        filter: drop-shadow(0 0 15px #facc15) drop-shadow(0 0 25px #ef4444) brightness(1.4);
       }
     }
 
@@ -1592,10 +1592,8 @@
 
     .donor-label {
       position: absolute;
-      /* Ajustamos top a -35px para que flote bien arriba del muñeco */
-      top: -35px;
-      /* Centramos horizontalmente respecto al muñeco */
-      transform: translateX(-50%);
+      top: 0;
+      transform: translate(-50%, 0);
       font-size: 15px;
       font-weight: 900;
       white-space: nowrap;
@@ -1609,8 +1607,7 @@
 
     .donor-label.active {
       opacity: 1;
-      /* Ligero movimiento hacia arriba al activarse */
-      transform: translateX(-50%) translateY(-10px);
+      transform: translate(-50%, -22px);
     }
 
     .donor-gold {
@@ -1824,17 +1821,9 @@
           // Limpiar giftId de todos los regalos al cargar (eliminar espacios)
           gifts = data.map(gift => {
             const cleanedId = cleanGiftId(gift.giftId);
-
-            // Asegurar que las URLs de imagen locales apunten al backend correcto
-            let imgUrl = gift.image || '';
-            if (imgUrl.startsWith('/')) {
-              imgUrl = SERVER_BASE_URL + imgUrl;
-            }
-
             return {
               ...gift,
-              giftId: cleanedId !== null ? cleanedId : gift.giftId,
-              image: imgUrl
+              giftId: cleanedId !== null ? cleanedId : gift.giftId
             };
           });
           console.log(`✅ ${gifts.length} regalos cargados exitosamente`);
@@ -1979,13 +1968,6 @@
           socketConnected = false;
           updateSocketStatus(false);
         });
-
-        // Ping para mantener la conexión viva en Render
-        setInterval(() => {
-          if (socket && socket.connected) {
-            socket.emit('ping');
-          }
-        }, 25000); // Enviar ping cada 25 segundos
 
         // Escuchar regalos de TikTok
         socket.on('tiktok:gift', (giftData) => {
@@ -2238,19 +2220,27 @@
         return;
       }
 
-      // Verificar si es el regalo especial (victoria inmediata)
+      // Verificar si es el regalo especial (victoria inmediata) - SIN IMPORTAR PUNTOS ACTUALES
       const specialGiftId = cleanGiftId(specialGift?.giftId);
       if (specialGift && giftId === specialGiftId) {
-        
-        // Obtener SIEMPRE el país que la rotación muestra actualmente
-        const specialCountry = countries[specialGiftCountryIndex];
-        
+        // Obtener el país que tiene el regalo especial en este momento (por índice)
+        let specialCountry = null;
+        if (specialGiftCountryIndex >= 0 && specialGiftCountryIndex < countries.length) {
+          specialCountry = countries[specialGiftCountryIndex];
+        }
+
+        // Si no se encuentra por índice, buscar por nombre (fallback)
+        if (!specialCountry && countries.length > 0) {
+          // Usar el primer país como fallback si el índice no es válido
+          specialCountry = countries[0];
+        }
+
         if (specialCountry) {
           const previousPoints = specialCountry.v;
-          console.log(`🏆 ¡REGALO ESPECIAL RECIBIDO! ${specialCountry.n} (que estaba en rotación) gana inmediatamente con ${giftName}! enviado por ${user?.name || 'Anónimo'}`);
+          console.log(`🏆 ¡REGALO ESPECIAL RECIBIDO! ${specialCountry.n} gana inmediatamente con ${giftName}!`);
           console.log(`   Puntos anteriores: ${previousPoints.toLocaleString()}, Meta: ${MAX.toLocaleString()}`);
 
-          // ASIGNAR LA META COMPLETA PARA GANAR INMEDIATAMENTE
+          // ASIGNAR LA META COMPLETA PARA GANAR INMEDIATAMENTE (sin importar puntos actuales)
           specialCountry.v = MAX;
           specialCountry.d = (specialCountry.d || 0) + (diamonds || 0);
 

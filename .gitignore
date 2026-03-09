@@ -12,3 +12,4 @@ brain/
 *.jpg
 *.gif
 !assets/run.gif
+!gifts/images/*

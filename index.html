@@ -1966,6 +1966,8 @@
           console.log('🟢 Conectado al servidor Socket.IO');
           socketConnected = true;
           updateSocketStatus(true);
+          // Pedir el estado actual de TikTok al servidor
+          socket.emit('tiktok:getStatus');
         });
 
         socket.on('disconnect', () => {
@@ -2060,6 +2062,10 @@
       if (status.connected) {
         statusEl.textContent = '🟢 TikTok Live conectado - Recibiendo regalos';
         statusEl.style.color = '#22c55e';
+      } else if (status.reconnecting || status.connecting) {
+        // El servidor está auto-reconectando
+        statusEl.textContent = status.message || '🟡 Reconectando a TikTok automáticamente...';
+        statusEl.style.color = '#fbbf24';
       } else {
         if (status.error) {
           const errorMsg = status.error?.exception || status.error?.info || 'Error desconocido';
@@ -2071,14 +2077,12 @@
             statusEl.style.color = '#ef4444';
           }
 
-          // Agregar botón de recargar cuando hay error
+          // Agregar botón de reconectar
           const reloadBtn = document.createElement('button');
           reloadBtn.className = 'reload-tiktok-btn';
-          reloadBtn.textContent = '🔄 Recargar';
+          reloadBtn.textContent = '🔄 Reconectar';
           reloadBtn.style.cssText = 'padding:0.25rem 0.5rem;font-size:0.65rem;border:none;border-radius:4px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;cursor:pointer;font-weight:700;';
-          reloadBtn.onclick = function () {
-            connectTikTok();
-          };
+          reloadBtn.onclick = function () { connectTikTok(); };
           statusContainer.appendChild(reloadBtn);
         } else {
           statusEl.textContent = '🟡 Conectando a TikTok...';

@@ -2005,6 +2005,25 @@
           updateTikTokConnectionStatus(response);
         });
 
+        // 🆕 Regalo nuevo recibido en el live: añadir a la librería en tiempo real
+        socket.on('library:newGift', (gift) => {
+          if (!gift || !gift.giftId) return;
+          // Verificar si ya está en la lista local
+          const alreadyExists = gifts.some(g => String(g.giftId) === String(gift.giftId));
+          if (!alreadyExists) {
+            gifts.push(gift);
+            console.log(`📚 Nuevo regalo añadido a la librería: ${gift.name} (💎${gift.diamonds})`);
+            // Actualizar los dropdowns de configuración si el modal está abierto
+            if (document.getElementById('configModal')?.style.display !== 'none') {
+              renderGiftConfig();
+            }
+          } else {
+            // Actualizar imagen si cambió
+            const existing = gifts.find(g => String(g.giftId) === String(gift.giftId));
+            if (existing && gift.image) existing.image = gift.image;
+          }
+        });
+
       } catch (error) {
         console.error('❌ Error al inicializar Socket.IO:', error);
         socketConnected = false;

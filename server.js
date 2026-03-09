@@ -133,7 +133,7 @@ async function downloadGiftImage(imageUrl, giftName) {
 }
 
 /**
- * Guarda un regalo nuevo en la BD JSON y descarga su imagen
+ * Guarda un regalo nuevo en la BD JSON y emite actualización si es nuevo
  */
 async function saveGiftToDatabase(giftData) {
     try {
@@ -143,46 +143,74 @@ async function saveGiftToDatabase(giftData) {
             database = JSON.parse(raw);
         }
 
-        // Si ya existe, solo actualizar si le falta imagen
-        if (database[giftData.name]) {
+        const isNew = !database[giftData.name];
+
+        // Si ya existe, actualizar URL si tiene imagen nueva
+        if (!isNew) {
             const existing = database[giftData.name];
+            // Actualizar id si era null
+            if (!existing.id && giftData.id) {
+                existing.id = giftData.id;
+            }
+            // Actualizar imageUrl si es nueva (las de TikTok expiran)
+            if (giftData.imageUrl && giftData.imageUrl.startsWith('http')) {
+                existing.imageUrl = giftData.imageUrl;
+                // Actualizar en memoria
+                const inMem = receivedGifts.get(giftData.name);
+                if (inMem) {
+                    inMem.imageUrl = giftData.imageUrl;
+                    if (giftData.id) inMem.id = giftData.id;
+                }
+            }
+            // Intentar descargar imagen si no hay local
             if (!existing.localImage && giftData.imageUrl) {
                 const localPath = await downloadGiftImage(giftData.imageUrl, giftData.name);
                 if (localPath) {
                     existing.localImage = localPath;
-                    fs.writeFileSync(GIFTS_DB_PATH, JSON.stringify(database, null, 2), 'utf8');
-                    // Actualizar en memoria
                     const inMem = receivedGifts.get(giftData.name);
                     if (inMem) inMem.localImage = localPath;
                 }
             }
+            fs.writeFileSync(GIFTS_DB_PATH, JSON.stringify(database, null, 2), 'utf8');
             return;
         }
 
-        // Descargar imagen del regalo
+        // Regalo nuevo: descargar imagen
         const localImage = await downloadGiftImage(giftData.imageUrl, giftData.name);
 
-        // Agregar a la BD
         database[giftData.name] = {
             name: giftData.name,
             id: giftData.id || null,
             diamondCount: giftData.diamondCount || 0,
-            imageUrl: giftData.imageUrl || '',
-            localImage: localImage,
+            imageUrl: giftData.imageUrl || '',    // Siempre guardar URL original
+            localImage: localImage || null,
             firstReceived: new Date().toISOString()
         };
 
         fs.writeFileSync(GIFTS_DB_PATH, JSON.stringify(database, null, 2), 'utf8');
-        console.log(`[GIFTS DB] 💾 Guardado nuevo regalo: ${giftData.name} (${giftData.diamondCount} 💎)`);
+        console.log(`[GIFTS DB] 💾 Nuevo regalo: ${giftData.name} (ID:${giftData.id}, ${giftData.diamondCount}💎)`);
 
         // Actualizar en memoria
-        receivedGifts.set(giftData.name, {
+        const memEntry = {
             id: giftData.id || null,
             name: giftData.name,
             diamondCount: giftData.diamondCount || 0,
-            imageUrl: localImage || giftData.imageUrl,
-            localImage: localImage
+            imageUrl: giftData.imageUrl || '',    // Guardar URL original siempre
+            localImage: localImage || null
+        };
+        receivedGifts.set(giftData.name, memEntry);
+
+        // Notificar a todos los clientes que hay un nuevo regalo en la biblioteca
+        const BACKEND_BASE = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+        const imageForFrontend = localImage ? `${BACKEND_BASE}${localImage}` : giftData.imageUrl || '';
+
+        io.emit('library:newGift', {
+            giftId: giftData.id,
+            name: giftData.name,
+            diamonds: giftData.diamondCount || 0,
+            image: imageForFrontend
         });
+
     } catch (err) {
         console.error('[GIFTS DB] Error guardando regalo:', err.message);
     }
@@ -454,18 +482,39 @@ io.on('connection', (socket) => {
 // ─── API REST ─────────────────────────────────────────────────────────────────
 
 /**
- * GET /api/gifts — Lista de regalos en memoria (regalos vivos recibidos en la sesión)
- * Devuelve formato compatible con el frontend del juego de países
+ * GET /api/gifts — Regalos combinados: BD persistente + memoria (URLs frescas)
+ * Persiste entre reinicios de Render leyendo el archivo JSON directamente.
  */
 app.get('/api/gifts', (req, res) => {
-    const gifts = Array.from(receivedGifts.values())
-        .map(g => ({
-            giftId: g.id,
-            name: g.name,
-            diamonds: g.diamondCount,
-            image: g.localImage || g.imageUrl || ''
-        }))
-        .filter(g => g.giftId)
+    const BACKEND_BASE = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+
+    // Leer la BD del archivo (fuente de verdad persistente)
+    let dbGifts = {};
+    try {
+        if (fs.existsSync(GIFTS_DB_PATH)) {
+            const raw = fs.readFileSync(GIFTS_DB_PATH, 'utf8');
+            dbGifts = JSON.parse(raw);
+        }
+    } catch (e) {
+        console.error('[API] Error leyendo DB regalos:', e.message);
+    }
+
+    // Mezclar archivo + memoria (memoria tiene imageUrls más recientes de TikTok)
+    const merged = new Map();
+    Object.values(dbGifts).forEach(g => { if (g.name) merged.set(g.name, g); });
+    receivedGifts.forEach((g, name) => { merged.set(name, { ...(merged.get(name) || {}), ...g }); });
+
+    const gifts = Array.from(merged.values())
+        .filter(g => g.id && g.id !== 0)
+        .map(g => {
+            let image = '';
+            if (g.localImage) {
+                image = g.localImage.startsWith('http') ? g.localImage : `${BACKEND_BASE}${g.localImage}`;
+            } else if (g.imageUrl) {
+                image = g.imageUrl;
+            }
+            return { giftId: g.id, name: g.name, diamonds: g.diamondCount || 0, image };
+        })
         .sort((a, b) => a.diamonds - b.diamonds);
 
     res.json(gifts);

@@ -29,9 +29,9 @@ app.use('/gifts', express.static(path.join(__dirname, 'gifts')));
 const PORT = process.env.PORT || 3001;
 
 if (process.env.EULER_API_KEY) {
-    console.log('[EULER] ✅ API Key detectada - Se usará como fallback de conexión');
+    console.log('[BYPASS] ✅ API Key detectada - Se usará Anti-Bloqueo como fallback de conexión');
 } else {
-    console.warn('[EULER] ⚠️  No hay EULER_API_KEY en .env - conexión básica habilitada');
+    console.warn('[BYPASS] ⚠️  No hay API Key en .env - conexión básica habilitada');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // ─── HISTORIAL DE CONEXIONES ─────────────────────────────────────────────────
@@ -339,18 +339,18 @@ async function connectToTikTokPersistent(username, manual = false) {
         logConnection(username, 'native', 'failed', err1.message);
         console.log(`[TikTok] ⚠️ Fallo inicial nativo (@${username}): ${err1.message}`);
         
-        // ─── EULER FALLBACK ───
+        // ─── BYPASS FALLBACK ───
         if (process.env.EULER_API_KEY) {
-            console.log(`[TikTok] 🟡 Reintentando con API de Euler Stream...`);
+            console.log(`[TikTok] 🟡 Reintentando con API de Conexión Segura...`);
             try {
                 const result = await tryConnect({ ...BASE_CONFIG, connectWithUniqueId: false, signApiKey: process.env.EULER_API_KEY });
                 connector = result.connector;
                 roomState = result.roomState;
-                logConnection(username, 'euler', 'success');
-                console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Euler Stream Bypass`);
+                logConnection(username, 'bypass', 'success');
+                console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Bypass Anti-Bloqueo`);
             } catch (err2) {
-                logConnection(username, 'euler', 'failed', err2.message);
-                console.error(`[TikTok] ❌ Fallo Euler (@${username}): ${err2.message}`);
+                logConnection(username, 'bypass', 'failed', err2.message);
+                console.error(`[TikTok] ❌ Fallo Bypass (@${username}): ${err2.message}`);
                 handleConnectionError(err2.message);
                 return;
             }

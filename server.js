@@ -317,9 +317,29 @@ async function connectToTikTokPersistent(username, manual = false) {
         connector = result.connector;
         roomState = result.roomState;
     } catch (err1) {
-        console.log(`[TikTok] ⚠️ Fallo inicial (@${username}): ${err1.message}`);
+        console.log(`[TikTok] ⚠️ Fallo inicial nativo (@${username}): ${err1.message}`);
         
-        let errMsg = err1.message || 'Error de conexión';
+        // ─── EULER FALLBACK ───
+        if (process.env.EULER_API_KEY) {
+            console.log(`[TikTok] 🟡 Reintentando con API de Euler Stream...`);
+            try {
+                const result = await tryConnect({ ...BASE_CONFIG, connectWithUniqueId: false, signApiKey: process.env.EULER_API_KEY });
+                connector = result.connector;
+                roomState = result.roomState;
+                console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Euler Stream Bypass`);
+            } catch (err2) {
+                console.error(`[TikTok] ❌ Fallo Euler (@${username}): ${err2.message}`);
+                handleConnectionError(err2.message);
+                return;
+            }
+        } else {
+            handleConnectionError(err1.message);
+            return;
+        }
+    }
+
+    function handleConnectionError(msg) {
+        let errMsg = msg || 'Error de conexión';
         if (errMsg.includes('room_id') || errMsg.includes('user') || errMsg.includes('invalid') || errMsg.includes('undefined')) {
              errMsg = 'El usuario no está en vivo o no existe. Verifica el usuario.';
              // No insistir mucho si no está en vivo
@@ -331,7 +351,6 @@ async function connectToTikTokPersistent(username, manual = false) {
         if (!session.stopping) {
             scheduleReconnect(username);
         }
-        return;
     }
 
     // Éxito

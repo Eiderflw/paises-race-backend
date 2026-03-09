@@ -216,17 +216,9 @@ async function saveGiftToDatabase(giftData) {
     }
 }
 
-// ─── SESIÓN GLOBAL PERSISTENTE DE TIKTOK ────────────────────────────────────
-// Una sola sesión compartida por TODOS los clientes
-const globalSession = {
-    connector: null,
-    username: null,
-    isConnected: false,
-    reconnectTimer: null,
-    reconnectAttempts: 0,
-    maxReconnectAttempts: 10,
-    stopping: false // true cuando el usuario pide desconectar manualmente
-};
+// ─── SESIONES MULTI-USUARIO PERSISTENTES ─────────────────────────────────────
+// username -> { connector, username, isConnected, reconnectTimer, reconnectAttempts, maxReconnectAttempts, stopping, viewers }
+const activeSessions = new Map();
 
 const BASE_CONFIG = {
     processInitialData: true,
@@ -240,10 +232,11 @@ const BASE_CONFIG = {
 };
 
 /**
- * Emite un evento a TODOS los clientes Socket.IO conectados
+ * Emite un evento solo a los clientes WebSockets conectados a la Sala (Room) del usuario
  */
-function broadcastToAll(event, data) {
-    io.emit(event, data);
+function broadcastToUserRoom(username, event, data) {
+    if (!username) return;
+    io.to(`room_${username}`).emit(event, data);
 }
 
 /**
@@ -254,41 +247,61 @@ function getReconnectDelay(attempts) {
 }
 
 /**
- * Detiene la sesión actual de TikTok
+ * Detiene una sesión de TikTok específica
  */
-function stopTikTokSession() {
-    if (globalSession.reconnectTimer) {
-        clearTimeout(globalSession.reconnectTimer);
-        globalSession.reconnectTimer = null;
+function stopTikTokSession(username) {
+    const session = activeSessions.get(username);
+    if (!session) return;
+    
+    if (session.reconnectTimer) {
+        clearTimeout(session.reconnectTimer);
+        session.reconnectTimer = null;
     }
-    if (globalSession.connector) {
-        try { globalSession.connector.disconnect(); } catch { }
-        globalSession.connector = null;
+    if (session.connector) {
+        try { session.connector.disconnect(); } catch { }
+        session.connector = null;
     }
-    globalSession.isConnected = false;
+    session.isConnected = false;
 }
 
 /**
- * Conecta a TikTok Live de forma persistente y se auto-reconecta si se cae
+ * Conecta a TikTok Live de forma persistente para un usuario dado y se auto-reconecta si se cae
  */
 async function connectToTikTokPersistent(username, manual = false) {
-    if (manual) {
-        globalSession.stopping = false;
-        globalSession.reconnectAttempts = 0;
+    let session = activeSessions.get(username);
+    
+    // Si no existe la sesión, la creamos
+    if (!session) {
+        session = {
+            connector: null,
+            username: username,
+            isConnected: false,
+            reconnectTimer: null,
+            reconnectAttempts: 0,
+            maxReconnectAttempts: 10,
+            stopping: false,
+            viewers: 0
+        };
+        activeSessions.set(username, session);
     }
 
-    // Si ya estamos conectados al mismo usuario, no hacer nada
-    if (globalSession.isConnected && globalSession.username === username) {
-        console.log(`[TikTok] ℹ️ Ya conectado a @${username}`);
+    if (manual) {
+        session.stopping = false;
+        session.reconnectAttempts = 0;
+    }
+
+    // Si ya estamos conectados, no hacer nada más que enviar estado
+    if (session.isConnected) {
+        console.log(`[TikTok] ℹ️ @${username} ya está conectado.`);
+        broadcastToUserRoom(username, 'tiktok:status', { connected: true, username, viewers: session.viewers });
         return;
     }
 
-    // Detener sesión anterior
-    stopTikTokSession();
-    globalSession.username = username;
+    // Detener la conexión vieja si existía, por seguridad
+    stopTikTokSession(username);
 
-    console.log(`[TikTok] 🔗 Conectando a @${username} (intento ${globalSession.reconnectAttempts + 1})...`);
-    broadcastToAll('tiktok:status', { connecting: true, username, message: `🟡 Conectando a @${username}...` });
+    console.log(`[TikTok] 🔗 Conectando a @${username} (intento ${session.reconnectAttempts + 1})...`);
+    broadcastToUserRoom(username, 'tiktok:status', { connecting: true, username, message: `🟡 Conectando a @${username}...` });
 
     const tryConnect = async (cfg) => {
         const connector = new TikTokLiveConnection(username, cfg);
@@ -300,12 +313,11 @@ async function connectToTikTokPersistent(username, manual = false) {
     let roomState = null;
 
     try {
-        // Intento nativo
         const result = await tryConnect({ ...BASE_CONFIG, connectWithUniqueId: false });
         connector = result.connector;
         roomState = result.roomState;
     } catch (err1) {
-        console.log(`[TikTok] ⚠️  Fallo nativo: ${err1.message}`);
+        console.log(`[TikTok] ⚠️  Fallo nativo (@${username}): ${err1.message}`);
 
         if (process.env.EULER_API_KEY) {
             try {
@@ -313,7 +325,7 @@ async function connectToTikTokPersistent(username, manual = false) {
                 connector = result.connector;
                 roomState = result.roomState;
             } catch (err2) {
-                console.error(`[TikTok] ❌ Fallo Euler: ${err2.message}`);
+                console.error(`[TikTok] ❌ Fallo Euler (@${username}): ${err2.message}`);
                 scheduleReconnect(username);
                 return;
             }
@@ -324,14 +336,14 @@ async function connectToTikTokPersistent(username, manual = false) {
     }
 
     // Éxito
-    globalSession.connector = connector;
-    globalSession.isConnected = true;
-    globalSession.reconnectAttempts = 0;
+    session.connector = connector;
+    session.isConnected = true;
+    session.reconnectAttempts = 0;
+    session.viewers = roomState?.roomInfo?.stats?.viewerCount || 0;
 
-    const viewers = roomState?.roomInfo?.stats?.viewerCount || 0;
-    console.log(`[TikTok] 🟢 Conectado a @${username} (${viewers} espectadores)`);
-    broadcastToAll('tiktok:status', { connected: true, username, viewers });
-    broadcastToAll('tiktok:connect:response', { connected: true, username, message: `Conectado a @${username} ✅` });
+    console.log(`[TikTok] 🟢 Conectado a @${username} (${session.viewers} espectadores)`);
+    broadcastToUserRoom(username, 'tiktok:status', { connected: true, username, viewers: session.viewers });
+    broadcastToUserRoom(username, 'tiktok:connect:response', { connected: true, username, message: `Conectado a @${username} ✅` });
 
     // ─── Eventos del Live ────────────────────────────────────────────────────
     connector.on('gift', (data) => {
@@ -352,8 +364,8 @@ async function connectToTikTokPersistent(username, manual = false) {
 
         saveGiftToDatabase({ name: giftName, id: giftId, diamondCount, imageUrl: giftImage });
 
-        // Emitir a TODOS los clientes
-        broadcastToAll('tiktok:gift', {
+        // Emitir SOLO a la room de este usuario
+        broadcastToUserRoom(username, 'tiktok:gift', {
             giftId,
             giftName,
             diamonds: diamondCount,
@@ -363,65 +375,68 @@ async function connectToTikTokPersistent(username, manual = false) {
             giftPictureUrl: giftImage
         });
 
-        console.log(`[Gift] 🎁 ${safeNickname} → ${giftName} (${diamondCount}💎 × ${data.repeatCount || 1})`);
+        console.log(`[Gift - @${username}] 🎁 ${safeNickname} → ${giftName} (${diamondCount}💎 × ${data.repeatCount || 1})`);
     });
 
     connector.on('streamEnd', () => {
         console.log(`[TikTok] 🔴 Stream de @${username} terminó`);
-        globalSession.isConnected = false;
-        broadcastToAll('tiktok:status', { connected: false, message: 'Stream finalizado' });
-        if (!globalSession.stopping) scheduleReconnect(username);
+        session.isConnected = false;
+        broadcastToUserRoom(username, 'tiktok:status', { connected: false, message: 'Stream finalizado' });
+        if (!session.stopping) scheduleReconnect(username);
     });
 
     connector.on('disconnected', () => {
         console.log(`[TikTok] 🔴 Desconectado de @${username}`);
-        globalSession.isConnected = false;
-        broadcastToAll('tiktok:status', { connected: false });
-        if (!globalSession.stopping) scheduleReconnect(username);
+        session.isConnected = false;
+        broadcastToUserRoom(username, 'tiktok:status', { connected: false });
+        if (!session.stopping) scheduleReconnect(username);
     });
 
     connector.on('disconnect', () => {
-        globalSession.isConnected = false;
-        broadcastToAll('tiktok:status', { connected: false });
-        if (!globalSession.stopping) scheduleReconnect(username);
+        session.isConnected = false;
+        broadcastToUserRoom(username, 'tiktok:status', { connected: false });
+        if (!session.stopping) scheduleReconnect(username);
     });
 
     connector.on('error', (err) => {
         const msg = err?.message || 'Error de conexión TikTok';
-        console.error(`[TikTok] Error:`, msg);
-        globalSession.isConnected = false;
-        broadcastToAll('tiktok:status', { connected: false, error: { info: msg } });
-        if (!globalSession.stopping) scheduleReconnect(username);
+        console.error(`[TikTok - @${username}] Error:`, msg);
+        session.isConnected = false;
+        broadcastToUserRoom(username, 'tiktok:status', { connected: false, error: { info: msg } });
+        if (!session.stopping) scheduleReconnect(username);
     });
 
     connector.on('member', (data) => {
         const viewers = data.viewerCount || 0;
-        // No es necesario guardarlo en globalSession pero podemos hacer broadcast
-        broadcastToAll('tiktok:viewers', { viewers });
+        session.viewers = viewers;
+        broadcastToUserRoom(username, 'tiktok:viewers', { viewers });
     });
 }
 
 /**
- * Programa un intento de reconexion con backoff exponencial
+ * Programa un intento de reconexion con backoff exponencial para una sesión
  */
 function scheduleReconnect(username) {
-    if (globalSession.stopping) return;
-    if (globalSession.reconnectAttempts >= globalSession.maxReconnectAttempts) {
-        console.error(`[TikTok] ❌ Máximo de intentos alcanzado (${globalSession.maxReconnectAttempts}). Deteniendo auto-reconexion.`);
-        broadcastToAll('tiktok:status', { connected: false, error: { info: 'No se pudo reconectar. Presiona Reconectar manualmente.' } });
+    const session = activeSessions.get(username);
+    if (!session || session.stopping) return;
+    
+    if (session.reconnectAttempts >= session.maxReconnectAttempts) {
+        console.error(`[TikTok] ❌ Máximo de intentos alcanzado para @${username} (${session.maxReconnectAttempts}). Deteniendo auto-reconexion.`);
+        broadcastToUserRoom(username, 'tiktok:status', { connected: false, error: { info: 'No se pudo reconectar. Presiona Reconectar manualmente.' } });
         return;
     }
 
-    globalSession.reconnectAttempts++;
-    const delay = getReconnectDelay(globalSession.reconnectAttempts);
-    console.log(`[TikTok] 🔄 Reconectando a @${username} en ${delay / 1000}s (intento ${globalSession.reconnectAttempts}/${globalSession.maxReconnectAttempts})...`);
-    broadcastToAll('tiktok:status', {
+    session.reconnectAttempts++;
+    const delay = getReconnectDelay(session.reconnectAttempts);
+    console.log(`[TikTok] 🔄 Reconectando a @${username} en ${delay / 1000}s (intento ${session.reconnectAttempts}/${session.maxReconnectAttempts})...`);
+    
+    broadcastToUserRoom(username, 'tiktok:status', {
         connected: false,
         reconnecting: true,
-        message: `🟡 Reconectando a @${username} en ${Math.ceil(delay / 1000)}s (intento ${globalSession.reconnectAttempts})...`
+        message: `🟡 Reconectando a @${username} en ${Math.ceil(delay / 1000)}s (intento ${session.reconnectAttempts})...`
     });
 
-    globalSession.reconnectTimer = setTimeout(() => {
+    session.reconnectTimer = setTimeout(() => {
         connectToTikTokPersistent(username, false);
     }, delay);
 }
@@ -429,15 +444,7 @@ function scheduleReconnect(username) {
 // ─── SOCKET.IO — EVENTOS DEL CLIENTE ─────────────────────────────────────────
 io.on('connection', (socket) => {
     console.log(`[WS] ✅ Cliente conectado: ${socket.id}`);
-
-    // Enviar estado actual al nuevo cliente
-    if (globalSession.isConnected && globalSession.username) {
-        socket.emit('tiktok:status', { connected: true, username: globalSession.username });
-        socket.emit('tiktok:connect:response', { connected: true, username: globalSession.username, message: `Conectado a @${globalSession.username} ✅` });
-    } else if (globalSession.username) {
-        socket.emit('tiktok:status', { connected: false, reconnecting: true, message: `🟡 Reconectando a @${globalSession.username}...` });
-    }
-
+    
     // El cliente pide conectar a TikTok
     socket.on('tiktok:connect', async ({ username } = {}) => {
         if (!username) {
@@ -446,23 +453,51 @@ io.on('connection', (socket) => {
         }
 
         const cleanUsername = username.trim().replace('@', '');
-        console.log(`[WS] 📡 Solicitud de conexión para @${cleanUsername}`);
+        console.log(`[WS] 📡 Solicitud de conexión de ${socket.id} para @${cleanUsername}`);
 
-        socket.emit('tiktok:connect:response', { connecting: true, message: `🟡 Conectando a @${cleanUsername}...` });
-        await connectToTikTokPersistent(cleanUsername, true);
+        // Desuscribir de cualquier otra sala anterior
+        if (socket.currentRoom) {
+            socket.leave(socket.currentRoom);
+        }
+        
+        // Unir a la sala de este usuario de TikTok
+        const roomName = `room_${cleanUsername}`;
+        socket.join(roomName);
+        socket.currentRoom = roomName;
+        socket.tiktokUsername = cleanUsername;
+
+        // Comprobar si ya existe la sesión persistente de este usuario en el backend
+        let session = activeSessions.get(cleanUsername);
+        
+        if (session && session.isConnected) {
+            // Ya está conectada, solo le enviamos el estado al nuevo socket / nueva pestaña
+            socket.emit('tiktok:status', { connected: true, username: cleanUsername, viewers: session.viewers });
+            socket.emit('tiktok:connect:response', { connected: true, username: cleanUsername, message: `Conectado a @${cleanUsername} ✅ (Sesión Restaurada)` });
+        } else {
+            // No existe o se desconectó, iniciar proceso
+            socket.emit('tiktok:connect:response', { connecting: true, message: `🟡 Conectando a @${cleanUsername}...` });
+            await connectToTikTokPersistent(cleanUsername, true);
+        }
     });
 
     // Desconectar de TikTok (manual)
     socket.on('tiktok:disconnect', () => {
-        console.log(`[WS] 🔌 Desconexión manual solicitada`);
-        globalSession.stopping = true;
-        stopTikTokSession();
-        broadcastToAll('tiktok:status', { connected: false });
+        const username = socket.tiktokUsername;
+        if (username) {
+            console.log(`[WS] 🔌 Desconexión manual solicitada para @${username} por ${socket.id}`);
+            const session = activeSessions.get(username);
+            if (session) {
+                session.stopping = true;
+                stopTikTokSession(username);
+            }
+            broadcastToUserRoom(username, 'tiktok:status', { connected: false });
+        }
     });
 
     socket.on('disconnect', () => {
         console.log(`[WS] 🔴 Cliente desconectado: ${socket.id}`);
-        // No afecta la sesión de TikTok - sigue corriendo para otros clientes
+        // No cerramos la sesión de TikTok en el servidor. 
+        // ¡Sigue corriendo y recolectando regalos para otros que estén en la misma room o por si recarga la página F5!
     });
 
     // Mantener la conexión viva en Render
@@ -470,12 +505,20 @@ io.on('connection', (socket) => {
         socket.emit('pong');
     });
 
-    // El cliente puede pedir el estado actual
+    // El cliente puede pedir el estado actual de LA SESIÓN EN LA QUE ESTÁ INVOLUCRADO
     socket.on('tiktok:getStatus', () => {
-        socket.emit('tiktok:status', {
-            connected: globalSession.isConnected,
-            username: globalSession.username
-        });
+        const username = socket.tiktokUsername;
+        if (username) {
+            const session = activeSessions.get(username);
+            if (session) {
+                socket.emit('tiktok:status', {
+                    connected: session.isConnected,
+                    username: username,
+                    viewers: session.viewers,
+                    reconnecting: session.reconnectTimer !== null
+                });
+            }
+        }
     });
 });
 

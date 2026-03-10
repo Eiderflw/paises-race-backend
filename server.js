@@ -18,7 +18,18 @@ const io = new Server(server, {
     cors: {
         origin: '*',
         methods: ['GET', 'POST']
-    }
+    },
+    // ── Configuración crítica para Render.com y móviles ──────────────────────
+    // Render.com cierra conexiones HTTP inactivas a los 30s.
+    // Con pingInterval=25s le enviamos un ping ANTES del timeout de Render,
+    // y pingTimeout=60s le damos tiempo suficiente para responder en redes móviles lentas.
+    pingInterval: 25000,        // Enviar ping cada 25 segundos
+    pingTimeout: 60000,         // Esperar hasta 60s la respuesta del pong
+    connectTimeout: 45000,      // Tiempo máximo para establecer la conexión inicial
+    transports: ['websocket', 'polling'],  // Intentar WebSocket primero, polling como fallback
+    upgradeTimeout: 10000,      // Timeout para upgrade de polling a websocket
+    maxHttpBufferSize: 1e6,     // 1MB máximo por mensaje
+    allowEIO3: true,            // Compatibilidad con clientes más antiguos (algunos móviles)
 });
 
 app.use(cors());
@@ -640,17 +651,18 @@ app.get('/api/gifts/database', (req, res) => {
  * GET /api/status — Estado del servidor
  */
 app.get('/api/status', (req, res) => {
-    const activeSessions = Array.from(sessions.entries())
+    // BUGFIX: la variable se llama activeSessions, no sessions
+    const sessionList = Array.from(activeSessions.entries())
         .filter(([, s]) => s.isConnected)
-        .map(([id, s]) => ({ socketId: id.substring(0, 8) + '...', username: s.username }));
+        .map(([username, s]) => ({ username, viewers: s.viewers }));
 
     res.json({
         success: true,
         server: 'PAISES Race Game Server v1.0',
         port: PORT,
         giftsInDB: receivedGifts.size,
-        activeSessions: activeSessions.length,
-        sessions: activeSessions
+        activeSessions: sessionList.length,
+        sessions: sessionList
     });
 });
 

@@ -3586,8 +3586,8 @@
             }
           }
 
-          // — Solo rellenar el dropdown si está abierto (visible) —
-          if (!dropdown || !dropdown.classList.contains('show')) continue;
+          // Rellenar el dropdown (siempre, para que esté listo al mostrarse)
+          if (!dropdown) continue;
 
           // Limpiar dropdown
           dropdown.innerHTML = '';

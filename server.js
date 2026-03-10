@@ -696,6 +696,26 @@ app.get('/api/gifts/database', (req, res) => {
 });
 
 /**
+ * GET /api/gifts/export — Exporta gifts_database.json RAW para respaldo antes de git push.
+ * El script deploy.ps1 llama este endpoint para descargar la BD actualizada al repo local.
+ */
+app.get('/api/gifts/export', (req, res) => {
+    try {
+        if (fs.existsSync(GIFTS_DB_PATH)) {
+            const raw = fs.readFileSync(GIFTS_DB_PATH, 'utf8');
+            const db = JSON.parse(raw);
+            console.log(`[API] 📤 Exportando BD de regalos: ${Object.keys(db).length} regalos`);
+            res.setHeader('Content-Type', 'application/json');
+            res.send(raw);
+        } else {
+            res.json({});
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * GET /api/status — Estado del servidor
  */
 app.get('/api/status', (req, res) => {

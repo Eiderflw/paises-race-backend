@@ -1981,12 +1981,27 @@
     let socketConnected = false;
 
     // ─── SISTEMA DE CHAT / COMENTARIOS ───────────────────────────────────────
-    // Activa puntos por comentar el nombre del país o su bandera emoji
     let chatPointsEnabled = JSON.parse(localStorage.getItem('chatPointsEnabled') ?? 'true');
-    const CHAT_POINTS_PER_COMMENT = 0.5; // Puntos por comentario
-    const CHAT_COOLDOWN_MS = 3000;       // Cooldown por usuario (3s anti-spam)
-    const CHAT_MAX_POINTS_PER_USER = 2;  // Máximo 2 puntos acumulables por usuario
-    const chatUserCooldowns = new Map(); // userId -> { lastTime, totalPoints }
+    const CHAT_POINTS_PER_COMMENT = 0.5;
+    const CHAT_COOLDOWN_MS = 3000;
+    const CHAT_MAX_POINTS_PER_USER = 2;
+    const chatUserCooldowns = new Map();
+
+    // ─── REGALOS NUEVOS (badge 🆕) ──────────────────────────────────────────────
+    // Guarda los IDs de regalos recibidos en vivo esta sesión (se limpia al asignarlos)
+    const newGiftIds = new Set(
+      JSON.parse(localStorage.getItem('newGiftIds') || '[]')
+    );
+    function saveNewGiftIds() {
+      localStorage.setItem('newGiftIds', JSON.stringify([...newGiftIds]));
+    }
+    function markGiftAsUsed(giftId) {
+      const cleaned = cleanGiftId(giftId);
+      if (cleaned !== null && newGiftIds.has(cleaned)) {
+        newGiftIds.delete(cleaned);
+        saveNewGiftIds();
+      }
+    }
 
     console.log('🔌 Socket URL:', SOCKET_URL);
 
@@ -2122,25 +2137,24 @@
           if (!gift || !gift.giftId) return;
           const alreadyExists = gifts.some(g => String(g.giftId) === String(gift.giftId));
           if (!alreadyExists) {
-            // Asegurar que la URL de imagen sea absoluta
             if (gift.image && gift.image.startsWith('/')) {
               gift.image = SERVER_BASE_URL + gift.image;
             }
             gifts.push(gift);
-            console.log(`📚 Nuevo regalo añadido: ${gift.name} (💎${gift.diamonds})`);
+            // Marcar como nuevo
+            const cleanedId = cleanGiftId(gift.giftId);
+            if (cleanedId !== null) {
+              newGiftIds.add(cleanedId);
+              saveNewGiftIds();
+            }
+            console.log(`📚 🆕 Nuevo regalo: ${gift.name} (💎${gift.diamonds})`);
           } else {
-            // Actualizar imagen si cambió
             const existing = gifts.find(g => String(g.giftId) === String(gift.giftId));
             if (existing && gift.image) existing.image = gift.image;
           }
-          // Siempre refrescar los dropdowns/config cuando cambia la biblioteca
-          // updateAllDropdowns: actualiza sólo el contenido interno sin reconstruir el DOM
-          // renderGiftConfig: solo si el modal está cerrado (primera carga)
           const configVisible = document.getElementById('configModal')?.style.display !== 'none';
           if (configVisible) {
-            // Actualizar todos los dropdowns abiertos Y los botones de selección
             updateAllDropdowns();
-            // Actualizar también el dropdown de regalo especial
             renderSpecialGiftDropdown();
           }
         });
@@ -3710,7 +3724,8 @@
 
             const giftName = document.createElement('span');
             giftName.className = 'gift-name';
-            giftName.innerHTML = `${gift.name} <span style="color:rgba(250,204,21,.9);font-weight:700;margin-left:0.5rem;">💎${gift.diamonds || 0}</span>`;
+            const isNew = newGiftIds.has(giftId);
+            giftName.innerHTML = `${gift.name}${isNew ? ' <span style="background:#22d3ee;color:#020617;font-size:0.6rem;font-weight:900;padding:1px 5px;border-radius:6px;vertical-align:middle;letter-spacing:0.5px;">NEW</span>' : ''} <span style="color:rgba(250,204,21,.9);font-weight:700;margin-left:0.5rem;">💎${gift.diamonds || 0}</span>`;
 
             dropdownItem.appendChild(giftImg);
             dropdownItem.appendChild(giftName);
@@ -3750,7 +3765,7 @@
                 return;
               }
 
-              // Actualizar o agregar regalo en el slot (limpiar giftId antes de guardar)
+              // Actualizar o agregar regalo en el slot
               const cleanedGiftId = cleanGiftId(gift.giftId);
               if (cleanedGiftId === null) {
                 alert(`⚠️ ID de regalo inválido`);
@@ -3761,6 +3776,9 @@
               } else {
                 country.gifts.push({ giftId: cleanedGiftId, giftImg: gift.image });
               }
+
+              // Quitar badge de nuevo al asignarlo
+              markGiftAsUsed(cleanedGiftId);
 
               saveConfig();
 

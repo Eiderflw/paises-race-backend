@@ -1837,6 +1837,30 @@
     const SERVER_BASE_URL = isLocal ? 'http://localhost:3001' : (window.location.origin.includes('onrender') ? window.location.origin : RENDER_URL);
     const GIFTS_URL = `${SERVER_BASE_URL}/api/gifts`;
 
+    // ─── CACHÉ LOCAL DE REGALOS (sobrevive reinicios de Render) ──────────────────────
+    // Render tiene filesystem efímero: gifts_database.json se borra en cada reinicio.
+    // Guardamos los regalos en localStorage del navegador para que no desaparezcan.
+    const LOCAL_GIFTS_KEY = 'giftsLocalCache_v2';
+
+    function saveGiftsToLocalCache(giftsArray) {
+      try {
+        const toSave = giftsArray.map(g => ({
+          giftId: g.giftId,
+          name: g.name,
+          diamonds: g.diamonds,
+          image: g.image
+        }));
+        localStorage.setItem(LOCAL_GIFTS_KEY, JSON.stringify(toSave));
+      } catch(e) { console.warn('No se pudo guardar caché de regalos:', e); }
+    }
+
+    function loadGiftsFromLocalCache() {
+      try {
+        const raw = localStorage.getItem(LOCAL_GIFTS_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch(e) { return []; }
+    }
+
     // Cargar regalos desde URL externa
     async function loadGifts() {
       try {
@@ -1851,33 +1875,39 @@
 
         // Validar que sea un array
         if (Array.isArray(data)) {
-          // Limpiar giftId de todos los regalos al cargar (eliminar espacios)
           gifts = data.map(gift => {
             const cleanedId = cleanGiftId(gift.giftId);
-
-            // Asegurar que las URLs de imagen locales apunten al backend correcto
             let imgUrl = gift.image || '';
-            if (imgUrl.startsWith('/')) {
-              imgUrl = SERVER_BASE_URL + imgUrl;
-            }
-
-            return {
-              ...gift,
-              giftId: cleanedId !== null ? cleanedId : gift.giftId,
-              image: imgUrl
-            };
+            if (imgUrl.startsWith('/')) imgUrl = SERVER_BASE_URL + imgUrl;
+            return { ...gift, giftId: cleanedId !== null ? cleanedId : gift.giftId, image: imgUrl };
           });
-          console.log(`✅ ${gifts.length} regalos cargados exitosamente`);
 
-          // Actualizar UI si ya está renderizada
-          if (document.getElementById('countryGiftConfig')) {
-            renderGiftConfig();
+          // ─── MERGE con caché local ───────────────────────────────────────────────
+          // Los regalos en el caché local que NO estén en el servidor (fueron borrados
+          // por el reinicio efímero de Render) los volvemos a agregar al array.
+          const localCached = loadGiftsFromLocalCache();
+          let mergedCount = 0;
+          localCached.forEach(cached => {
+            const cachedId = cleanGiftId(cached.giftId);
+            if (cachedId === null) return;
+            const alreadyInServer = gifts.some(g => cleanGiftId(g.giftId) === cachedId);
+            if (!alreadyInServer) {
+              gifts.push(cached);
+              mergedCount++;
+            }
+          });
+          if (mergedCount > 0) {
+            console.log(`💾 Restaurados ${mergedCount} regalos desde caché local (Render reinició)`);
           }
-          if (document.getElementById('specialGiftDropdown')) {
-            renderSpecialGiftDropdown();
-          }
+
+          // Actualizar el caché local con la lista completa actual
+          saveGiftsToLocalCache(gifts);
+
+          console.log(`✅ ${gifts.length} regalos totales (${data.length} servidor + ${mergedCount} local)`);
+
+          if (document.getElementById('countryGiftConfig')) renderGiftConfig();
+          if (document.getElementById('specialGiftDropdown')) renderSpecialGiftDropdown();
           updateSpecialGiftSelector();
-
           return true;
         } else {
           throw new Error('Los datos recibidos no son un array válido');
@@ -2133,31 +2163,28 @@
           updateTikTokConnectionStatus(response);
         });
 
-        // 🆕 Regalo nuevo recibido en el live: añadir a la librería en tiempo real
+        // 🆕 Regalo nuevo del live: añadir a biblioteca Y guardar en localStorage
         socket.on('library:newGift', (gift) => {
           if (!gift || !gift.giftId) return;
           const alreadyExists = gifts.some(g => String(g.giftId) === String(gift.giftId));
           if (!alreadyExists) {
-            if (gift.image && gift.image.startsWith('/')) {
-              gift.image = SERVER_BASE_URL + gift.image;
-            }
+            if (gift.image && gift.image.startsWith('/')) gift.image = SERVER_BASE_URL + gift.image;
             gifts.push(gift);
+            // Persistir en localStorage para sobrevivir reinicios de Render
+            saveGiftsToLocalCache(gifts);
             // Marcar como nuevo
             const cleanedId = cleanGiftId(gift.giftId);
-            if (cleanedId !== null) {
-              newGiftIds.add(cleanedId);
-              saveNewGiftIds();
-            }
-            console.log(`📚 🆕 Nuevo regalo: ${gift.name} (💎${gift.diamonds})`);
+            if (cleanedId !== null) { newGiftIds.add(cleanedId); saveNewGiftIds(); }
+            console.log(`📚 🆕 Nuevo regalo (guardado localmente): ${gift.name} (💎${gift.diamonds})`);
           } else {
             const existing = gifts.find(g => String(g.giftId) === String(gift.giftId));
-            if (existing && gift.image) existing.image = gift.image;
+            if (existing && gift.image) {
+              existing.image = gift.image;
+              saveGiftsToLocalCache(gifts); // actualizar imagen en caché
+            }
           }
           const configVisible = document.getElementById('configModal')?.style.display !== 'none';
-          if (configVisible) {
-            updateAllDropdowns();
-            renderSpecialGiftDropdown();
-          }
+          if (configVisible) { updateAllDropdowns(); renderSpecialGiftDropdown(); }
         });
 
       } catch (error) {

@@ -1729,6 +1729,16 @@
           <label class="config-label">🎁 Asignar Regalos a Países</label>
           <div class="config-scroll" id="countryGiftConfig"></div>
         </div>
+        <div class="config-group" style="margin-top:0.5rem;">
+          <label class="config-label">💬 Puntos por Comentarios de Chat</label>
+          <button id="chatPointsToggleBtn" onclick="toggleChatPoints()"
+            style="width:100%;padding:0.65rem;border:none;border-radius:14px;font-weight:900;cursor:pointer;font-size:0.9rem;background:linear-gradient(135deg,#22d3ee,#6366f1);color:#020617;">
+            💬 Puntos por Chat: ON
+          </button>
+          <div style="margin-top:0.4rem;font-size:0.72rem;opacity:0.65;text-align:center;">
+            Comentar el nombre del país o su 🏳️ emoji da +0.5pts (cooldown 3s por usuario)
+          </div>
+        </div>
       </div>
       <button class="config-btn" onclick="startGame()" style="flex-shrink:0;margin-top:1rem;">🚀 Iniciar Juego</button>
     </div>
@@ -1970,25 +1980,41 @@
     let socket = null;
     let socketConnected = false;
 
+    // ─── SISTEMA DE CHAT / COMENTARIOS ───────────────────────────────────────
+    // Activa puntos por comentar el nombre del país o su bandera emoji
+    let chatPointsEnabled = JSON.parse(localStorage.getItem('chatPointsEnabled') ?? 'true');
+    const CHAT_POINTS_PER_COMMENT = 0.5; // Puntos por comentario
+    const CHAT_COOLDOWN_MS = 3000;       // Cooldown por usuario (3s anti-spam)
+    const CHAT_MAX_POINTS_PER_USER = 2;  // Máximo 2 puntos acumulables por usuario
+    const chatUserCooldowns = new Map(); // userId -> { lastTime, totalPoints }
+
     console.log('🔌 Socket URL:', SOCKET_URL);
+
+    // Timestamp de última actividad del socket (usado por el watchdog)
+    let lastActivityTime = Date.now();
 
     // Conectar al servidor Socket.IO
     function connectSocket() {
       try {
-        // Desconectar socket anterior si existe
-        if (socket) { try { socket.disconnect(); } catch(e){} }
+        // Limpiar watchdog del socket anterior si existe
+        if (socket) {
+          try {
+            if (socket._watchdogInterval) clearInterval(socket._watchdogInterval);
+            socket.disconnect();
+          } catch(e){}
+        }
 
         socket = io(SOCKET_URL, {
-          // Protocolo: WebSocket directo primero, polling como fallback para redes restrictivas
-          transports: ['websocket', 'polling'],
-          // Reconexón automática ilimitada con backoff exponencial
+          // IMPORTANTE: polling PRIMERO — funciona en TODAS las redes (móvil, Render proxy).
+          // Socket.IO hará upgrade automático a WebSocket si la red lo permite.
+          transports: ['polling', 'websocket'],
+          // Reconexión automática ilimitada con backoff exponencial
           reconnection: true,
-          reconnectionAttempts: Infinity,    // Nunca rendirse
-          reconnectionDelay: 1000,           // Primer reintento a 1s
-          reconnectionDelayMax: 10000,       // Máximo 10s entre reintentos
-          randomizationFactor: 0.5,          // Añade aleatoriedad para evitar thundering herd
-          // Timeouts adaptados a redes móviles lentas
-          timeout: 45000,                    // 45s para establecer la conexión inicial
+          reconnectionAttempts: Infinity,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 10000,
+          randomizationFactor: 0.5,
+          timeout: 45000,
         });
 
         socket.on('connect', () => {
@@ -2015,23 +2041,73 @@
 
         socket.on('reconnect', (attemptNumber) => {
           console.log(`🔄 Reconectado al servidor (intento #${attemptNumber})`);
+          // Al reconectar, volver a solicitar estado de TikTok
+          const savedUser = localStorage.getItem('tiktokUsername');
+          if (savedUser && socket.tiktokUsername) {
+            socket.emit('tiktok:connect', { username: socket.tiktokUsername });
+          }
         });
 
         socket.on('reconnect_attempt', (attemptNumber) => {
           console.log(`🔁 Reintentando conexión... intento #${attemptNumber}`);
         });
 
-        // NOTA: NO hacemos ping manual cada 25s porque el servidor ya configura
-        // pingInterval: 25000 y envía pings automáticos a todos los clientes.
-        // Un ping extra causaría duplicado y mayor consumo de batería en móvil.
+        // Keepalive del servidor: actualizar timestamp al recibirlo
+        socket.on('keepalive', () => { lastActivityTime = Date.now(); });
+
+        // ─────────────────────────────────────────────────────────────
+        // WATCHDOG: detecta socket zombie (connected=true pero sin datos)
+        // ─────────────────────────────────────────────────────────────
+        socket.on('pong', () => { lastActivityTime = Date.now(); });
+
+        // Solo registrar el watchdog y visibilitychange la PRIMERA VEZ
+        // (evita listeners duplicados cuando connectSocket() se llama varias veces)
+        if (!window._socketWatchdogRegistered) {
+          window._socketWatchdogRegistered = true;
+
+          setInterval(() => {
+            if (!socket || !socket.connected) return;
+            const elapsed = Date.now() - lastActivityTime;
+            if (elapsed > 55000) {
+              console.warn(`⚠️ WATCHDOG: Sin actividad por ${Math.round(elapsed/1000)}s. Reconectando...`);
+              socket.disconnect();
+              setTimeout(() => { if (socket) socket.connect(); }, 500);
+              lastActivityTime = Date.now();
+            }
+          }, 25000);
+
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+              setTimeout(() => {
+                if (!socket || !socket.connected) {
+                  console.log('📡 [VISIBILITY] Volvió al navegador. Reconectando...');
+                  if (socket) { socket.connect(); } else { connectSocket(); }
+                } else {
+                  socket.emit('tiktok:getStatus');
+                }
+                lastActivityTime = Date.now();
+              }, 500);
+            }
+          });
+        }
 
         // Escuchar regalos de TikTok
         socket.on('tiktok:gift', (giftData) => {
+          lastActivityTime = Date.now();
           handleGiftReceived(giftData);
+        });
+
+        // Escuchar comentarios de TikTok → puntos por chat
+        socket.on('tiktok:chat', (chatData) => {
+          lastActivityTime = Date.now();
+          if (chatPointsEnabled && gameStarted) {
+            handleChatComment(chatData);
+          }
         });
 
         // Escuchar estado de conexión de TikTok
         socket.on('tiktok:status', (status) => {
+          lastActivityTime = Date.now();
           updateTikTokStatus(status);
           updateTikTokConnectionStatus(status);
         });
@@ -2044,17 +2120,14 @@
         // 🆕 Regalo nuevo recibido en el live: añadir a la librería en tiempo real
         socket.on('library:newGift', (gift) => {
           if (!gift || !gift.giftId) return;
-          // Verificar si ya está en la lista local
           const alreadyExists = gifts.some(g => String(g.giftId) === String(gift.giftId));
           if (!alreadyExists) {
             gifts.push(gift);
-            console.log(`📚 Nuevo regalo añadido a la librería: ${gift.name} (💎${gift.diamonds})`);
-            // Actualizar los dropdowns de configuración si el modal está abierto
+            console.log(`📚 Nuevo regalo añadido: ${gift.name} (💎${gift.diamonds})`);
             if (document.getElementById('configModal')?.style.display !== 'none') {
               renderGiftConfig();
             }
           } else {
-            // Actualizar imagen si cambió
             const existing = gifts.find(g => String(g.giftId) === String(gift.giftId));
             if (existing && gift.image) existing.image = gift.image;
           }
@@ -2440,6 +2513,106 @@
       // Verificar si alguien ganó
       if (countries[0].v >= MAX) {
         endGame();
+      }
+    }
+
+    // ─── MANEJADOR DE COMENTARIOS DE CHAT ────────────────────────────────
+    function handleChatComment({ user, comment }) {
+      if (!comment || !gameStarted) return;
+
+      const textLower = comment.toLowerCase();
+      const now = Date.now();
+
+      // — Anti-spam per user —
+      const cooldownData = chatUserCooldowns.get(user);
+      if (cooldownData) {
+        if (now - cooldownData.lastTime < CHAT_COOLDOWN_MS) return; // cooldown activo
+        if (cooldownData.totalPoints >= CHAT_MAX_POINTS_PER_USER) return; // límite alcanzado
+      }
+
+      // — Buscar país por nombre o emoji bandera —
+      // El emoji bandera de un país se forma con letras indicadoras regionales.
+      // 🇨🇴 = CO (Colombia), 🇻🇪 = VE (Venezuela), etc.
+      function countryFlagEmoji(isoCode) {
+        return isoCode.toUpperCase().split('').map(c =>
+          String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)
+        ).join('');
+      }
+
+      let matchedCountry = null;
+      for (const c of countries) {
+        const nameLower = c.n.toLowerCase();
+        // Coincidencia por nombre (el comentario contiene el nombre del país)
+        if (textLower.includes(nameLower)) {
+          matchedCountry = c;
+          break;
+        }
+        // Coincidencia por emoji de bandera
+        const flagEmoji = countryFlagEmoji(c.f);
+        if (comment.includes(flagEmoji)) {
+          matchedCountry = c;
+          break;
+        }
+      }
+
+      if (!matchedCountry) return;
+
+      // Verificar que el país tenga puntos (ningún país sin regalo asignado puede ser votado)
+      if (!matchedCountry.gifts || matchedCountry.gifts.length === 0) return;
+
+      // Aplicar puntos
+      const points = CHAT_POINTS_PER_COMMENT;
+      matchedCountry.v = Math.min(matchedCountry.v + points, MAX);
+
+      // Actualizar cooldown
+      const prev = chatUserCooldowns.get(user) || { lastTime: 0, totalPoints: 0 };
+      chatUserCooldowns.set(user, {
+        lastTime: now,
+        totalPoints: prev.totalPoints + points
+      });
+
+      console.log(`💬 @${user} votó por ${matchedCountry.n} (+${points}pts)`);
+
+      // Mini toast visual — mostrar debajo del socketStatus
+      showChatToast(user, matchedCountry.n, matchedCountry.f);
+
+      // Renderizar
+      render();
+    }
+
+    // Muestra una mini notificación de voto por chat
+    let chatToastTimeout = null;
+    function showChatToast(user, countryName, countryFlag) {
+      let toast = document.getElementById('chatVoteToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'chatVoteToast';
+        toast.style.cssText = [
+          'position:fixed', 'bottom:80px', 'right:12px', 'z-index:9000',
+          'background:rgba(15,23,42,0.95)', 'border:1px solid rgba(34,211,238,.4)',
+          'border-radius:12px', 'padding:0.5rem 0.8rem',
+          'color:#fff', 'font-size:0.78rem', 'font-weight:700',
+          'box-shadow:0 4px 20px rgba(0,0,0,.5)',
+          'transition:opacity 0.4s', 'max-width:220px'
+        ].join(';');
+        document.body.appendChild(toast);
+      }
+      if (chatToastTimeout) clearTimeout(chatToastTimeout);
+      toast.style.opacity = '1';
+      toast.innerHTML = `💬 <span style="color:#38bdf8">@${user.substring(0,15)}</span> → <img src="https://flagcdn.com/w20/${countryFlag}.png" style="vertical-align:middle;width:16px;border-radius:2px"> ${countryName} <span style="color:#22d3ee">+0.5</span>`;
+      chatToastTimeout = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+    }
+
+    // Función para activar/desactivar puntos por comentarios
+    function toggleChatPoints() {
+      chatPointsEnabled = !chatPointsEnabled;
+      localStorage.setItem('chatPointsEnabled', JSON.stringify(chatPointsEnabled));
+      const btn = document.getElementById('chatPointsToggleBtn');
+      if (btn) {
+        btn.textContent = chatPointsEnabled ? '💬 Puntos por Chat: ON' : '💬 Puntos por Chat: OFF';
+        btn.style.background = chatPointsEnabled
+          ? 'linear-gradient(135deg,#22d3ee,#6366f1)'
+          : 'linear-gradient(135deg,#6b7280,#4b5563)';
       }
     }
 
@@ -3111,6 +3284,15 @@
         }, 1000);
       }
       renderWinsList();
+
+      // Inicializar estado del botón de chat
+      const chatBtn = document.getElementById('chatPointsToggleBtn');
+      if (chatBtn) {
+        chatBtn.textContent = chatPointsEnabled ? '💬 Puntos por Chat: ON' : '💬 Puntos por Chat: OFF';
+        chatBtn.style.background = chatPointsEnabled
+          ? 'linear-gradient(135deg,#22d3ee,#6366f1)'
+          : 'linear-gradient(135deg,#6b7280,#4b5563)';
+      }
     }
 
     // Guardar selección del regalo especial
@@ -3960,25 +4142,30 @@
 
             if (winsText) winsText.innerHTML = `<span class="${cupClass}">🏆</span> <span class="win-count-num">${wins}</span>`;
 
-            // Actualizar regalos (row-left)
+            // Actualizar regalos (row-left) — SOLO si cambiaron (evita parpadeo)
             const rowLeft = row.querySelector('.row-left');
             if (rowLeft) {
-              // Eliminar los regalos viejos
-              const oldGifts = rowLeft.querySelectorAll('img:not(.flag-img)');
-              oldGifts.forEach(g => g.remove());
-
-              // Insertar los nuevos regalos al principio
-              let newGiftsHTML = '';
               const countryGifts = c.gifts || [];
-              if (countryGifts.length > 0) {
-                countryGifts.forEach((gift, giftIdx) => {
-                  const giftData = getGiftById(gift.giftId);
-                  if (giftData) {
-                    newGiftsHTML += `<img src="${giftData.image}" style="width:24px; height:24px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.8));" alt="">`;
-                  }
+              // Construir lista de URLs nuevas
+              const newSrcs = countryGifts
+                .map(g => { const d = getGiftById(g.giftId); return d ? d.image : null; })
+                .filter(Boolean);
+              // Obtener imágenes de regalo existentes (excluye .flag-img)
+              const existingImgs = Array.from(rowLeft.querySelectorAll('img:not(.flag-img)'));
+              const existingSrcs = existingImgs.map(img => img.src);
+              // Comparar — si son iguales no tocar el DOM (sin parpadeo)
+              const changed = newSrcs.length !== existingSrcs.length ||
+                newSrcs.some((src, i) => src !== existingSrcs[i]);
+              if (changed) {
+                existingImgs.forEach(g => g.remove());
+                newSrcs.forEach(src => {
+                  const img = document.createElement('img');
+                  img.src = src;
+                  img.style.cssText = 'width:24px;height:24px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.8));';
+                  img.alt = '';
+                  rowLeft.insertBefore(img, rowLeft.firstChild);
                 });
               }
-              rowLeft.insertAdjacentHTML('afterbegin', newGiftsHTML);
             }
 
             // Reordenar visualmente usando order CSS

@@ -20,14 +20,15 @@ const io = new Server(server, {
         methods: ['GET', 'POST']
     },
     // ── Configuración crítica para Render.com y móviles ──────────────────────
-    // Render.com cierra conexiones HTTP inactivas a los 30s.
-    // Con pingInterval=25s le enviamos un ping ANTES del timeout de Render,
-    // y pingTimeout=60s le damos tiempo suficiente para responder en redes móviles lentas.
-    pingInterval: 25000,        // Enviar ping cada 25 segundos
-    pingTimeout: 60000,         // Esperar hasta 60s la respuesta del pong
-    connectTimeout: 45000,      // Tiempo máximo para establecer la conexión inicial
-    transports: ['websocket', 'polling'],  // Intentar WebSocket primero, polling como fallback
-    upgradeTimeout: 10000,      // Timeout para upgrade de polling a websocket
+    // Render.com cierra conexiones HTTP inactivas a los ~55s (proxy idle timeout).
+    // pingInterval=20s: enviamos ping ANTES del timeout de Render (30s HTTP, ~55s WS).
+    // Transports: polling PRIMERO — garantiza que funcione en redes móviles restrictivas
+    // que bloquean WebSocket. Socket.IO automáticamente hace upgrade a WS si es posible.
+    pingInterval: 20000,        // Ping cada 20s (por debajo del límite de Render)
+    pingTimeout: 60000,         // 60s para respuesta (redes móviles lentas)
+    connectTimeout: 45000,      // Tiempo máximo para conexión inicial
+    transports: ['polling', 'websocket'],  // Polling primero (más confiable), upgrade a WS
+    upgradeTimeout: 15000,      // 15s para upgrade a websocket
     maxHttpBufferSize: 1e6,     // 1MB máximo por mensaje
     allowEIO3: true,            // Compatibilidad con clientes más antiguos (algunos móviles)
 });
@@ -45,18 +46,40 @@ if (process.env.EULER_API_KEY) {
     console.warn('[BYPASS] ⚠️  No hay API Key en .env - conexión básica habilitada');
 }
 // ─────────────────────────────────────────────────────────────────────────────
-// ─── HISTORIAL DE CONEXIONES ─────────────────────────────────────────────────
-const connectionHistory = [];
-const MAX_HISTORY = 100;
+// ─── HISTORIAL DE CONEXIONES (PERSISTENTE EN DISCO) ──────────────────────────
+const HISTORY_FILE = path.join(__dirname, 'data', 'connection_history.json');
+const MAX_HISTORY = 500; // Guardar hasta 500 entradas
+
+// Asegurar que el directorio data/ exista
+if (!fs.existsSync(path.join(__dirname, 'data'))) {
+    fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
+}
+
+// Cargar historial existente desde disco al iniciar
+let connectionHistory = [];
+try {
+    if (fs.existsSync(HISTORY_FILE)) {
+        connectionHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+        console.log(`[HISTORY] ✅ ${connectionHistory.length} entradas de historial cargadas desde disco`);
+    }
+} catch (e) {
+    console.warn('[HISTORY] No se pudo leer el historial previo:', e.message);
+    connectionHistory = [];
+}
 
 function logConnection(username, type, status, errorMsg = null) {
     const timestamp = new Date().toISOString();
     const logEntry = { timestamp, username, type, status, errorMsg };
-    
+
     connectionHistory.unshift(logEntry); // Agregar al inicio
     if (connectionHistory.length > MAX_HISTORY) {
-        connectionHistory.pop(); // Mantener solo los últimos 100
+        connectionHistory.length = MAX_HISTORY; // Truncar para mantener el límite
     }
+
+    // Persistir en disco de forma asíncrona (no bloquear el loop)
+    fs.writeFile(HISTORY_FILE, JSON.stringify(connectionHistory, null, 2), (err) => {
+        if (err) console.error('[HISTORY] Error guardando historial:', err.message);
+    });
 }
 
 // Endpoint para el panel de administración
@@ -462,6 +485,18 @@ async function connectToTikTokPersistent(username, manual = false) {
         session.viewers = viewers;
         broadcastToUserRoom(username, 'tiktok:viewers', { viewers });
     });
+
+    connector.on('chat', (data) => {
+        const safeUser = data.user || data.userDetails || {};
+        const safeUniqueId = data.uniqueId || safeUser.uniqueId || safeUser.displayId || 'unknown';
+        const comment = data.comment || '';
+        if (!comment) return;
+
+        broadcastToUserRoom(username, 'tiktok:chat', {
+            user: safeUniqueId,
+            comment
+        });
+    });
 }
 
 /**
@@ -495,6 +530,19 @@ function scheduleReconnect(username) {
 // ─── SOCKET.IO — EVENTOS DEL CLIENTE ─────────────────────────────────────────
 io.on('connection', (socket) => {
     console.log(`[WS] ✅ Cliente conectado: ${socket.id}`);
+
+    // Keepalive: evita que el proxy de Render mate conexiones inactivas.
+    // Render cierra conexiones HTTP/WS que no tienen tráfico por ~55s.
+    // Este intervalo asegura tráfico continuo independiente del pingInterval de Socket.IO.
+    const keepaliveInterval = setInterval(() => {
+        if (socket.connected) {
+            socket.emit('keepalive', { t: Date.now() });
+        }
+    }, 20000);
+
+    socket.on('disconnect', () => {
+        clearInterval(keepaliveInterval);
+    });
     
     // El cliente pide conectar a TikTok
     socket.on('tiktok:connect', async ({ username } = {}) => {
@@ -545,9 +593,9 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', () => {
-        console.log(`[WS] 🔴 Cliente desconectado: ${socket.id}`);
-        // No cerramos la sesión de TikTok en el servidor. 
+    socket.on('disconnect', (reason) => {
+        console.log(`[WS] 🔴 Cliente desconectado: ${socket.id} — razón: ${reason}`);
+        // No cerramos la sesión de TikTok en el servidor.
         // ¡Sigue corriendo y recolectando regalos para otros que estén en la misma room o por si recarga la página F5!
     });
 

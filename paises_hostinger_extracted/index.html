@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -336,18 +336,18 @@
 
     .runner.super-saiyan {
       opacity: 1;
-      filter: drop-shadow(0 0 8px #facc15) drop-shadow(0 0 15px #fb923c) brightness(1.2);
+      filter: drop-shadow(0 0 15px #facc15) drop-shadow(0 0 25px #fb923c) brightness(1.5);
       animation: saiyanAura 0.3s infinite alternate;
-      transform: translateY(-50%) scale(1.2);
+      transform: translateY(-50%) scale(1.6);
     }
 
     @keyframes saiyanAura {
       0% {
-        filter: drop-shadow(0 0 8px #facc15) drop-shadow(0 0 15px #fb923c) brightness(1.2);
+        filter: drop-shadow(0 0 15px #facc15) drop-shadow(0 0 25px #fb923c) brightness(1.5);
       }
 
       100% {
-        filter: drop-shadow(0 0 15px #facc15) drop-shadow(0 0 25px #ef4444) brightness(1.4);
+        filter: drop-shadow(0 0 25px #facc15) drop-shadow(0 0 35px #ef4444) brightness(1.8);
       }
     }
 
@@ -1592,8 +1592,10 @@
 
     .donor-label {
       position: absolute;
-      top: 0;
-      transform: translate(-50%, 0);
+      /* Ajustamos top a -35px para que flote bien arriba del muñeco */
+      top: -35px;
+      /* Centramos horizontalmente respecto al muñeco */
+      transform: translateX(-50%);
       font-size: 15px;
       font-weight: 900;
       white-space: nowrap;
@@ -1607,7 +1609,8 @@
 
     .donor-label.active {
       opacity: 1;
-      transform: translate(-50%, -22px);
+      /* Ligero movimiento hacia arriba al activarse */
+      transform: translateX(-50%) translateY(-10px);
     }
 
     .donor-gold {
@@ -1689,8 +1692,10 @@
           <label class="config-label">📱 Usuario de TikTok Live (sin @)</label>
           <input type="text" class="config-input" id="tiktokUsername" placeholder="Ej: fresita.493"
             onkeypress="if(event.key==='Enter') connectTikTok()">
-          <button class="config-btn" onclick="connectTikTok()"
-            style="margin-top:0.5rem;padding:0.6rem;font-size:0.9rem;">🔗 Conectar a TikTok Live</button>
+          <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+            <button class="config-btn" onclick="connectTikTok()" style="flex:1; padding:0.6rem;font-size:0.85rem;">🔗 Conectar a TikTok</button>
+            <button class="config-btn" onclick="showHistoryModal()" style="flex:1; padding:0.6rem;font-size:0.85rem;background:linear-gradient(135deg,#8b5cf6,#d946ef);">📜 Ver Logs (Bypass)</button>
+          </div>
           <div id="tiktokConnectionStatus"
             style="margin-top:0.5rem;font-size:0.8rem;opacity:0.7;text-align:center;display:flex;align-items:center;justify-content:center;gap:0.5rem;flex-wrap:wrap;">
           </div>
@@ -1724,8 +1729,36 @@
           <label class="config-label">🎁 Asignar Regalos a Países</label>
           <div class="config-scroll" id="countryGiftConfig"></div>
         </div>
+        <div class="config-group" style="margin-top:0.5rem;">
+          <label class="config-label">💬 Puntos por Comentarios de Chat</label>
+          <button id="chatPointsToggleBtn" onclick="toggleChatPoints()"
+            style="width:100%;padding:0.65rem;border:none;border-radius:14px;font-weight:900;cursor:pointer;font-size:0.9rem;background:linear-gradient(135deg,#22d3ee,#6366f1);color:#020617;">
+            💬 Puntos por Chat: ON
+          </button>
+          <div style="margin-top:0.4rem;font-size:0.72rem;opacity:0.65;text-align:center;">
+            Comentar el nombre del país o su 🏳️ emoji da +0.5pts (cooldown 3s por usuario)
+          </div>
+        </div>
       </div>
       <button class="config-btn" onclick="startGame()" style="flex-shrink:0;margin-top:1rem;">🚀 Iniciar Juego</button>
+    </div>
+  </div>
+
+  <!-- MODAL DE HISTORIAL DE CONEXIONES (BYPASS) -->
+  <div class="country-modal" id="historyModal" style="display:none; z-index: 2000;">
+    <div class="config-content" style="max-width:600px;">
+      <h2 class="config-title" style="flex-shrink:0; font-size: 1.2rem;">📜 Historial de Conexiones</h2>
+      <div style="margin-bottom: 0.5rem; font-size: 0.8rem; color: #cbd5e1; text-align: center;">
+        Monitorea los intentos de conexión de TikTok. Si dice "Bypass Success", significa que TikTok te bloqueó y que nuestro sistema de Conexión Segura te salvó.
+      </div>
+      <div style="flex:1; overflow-y:auto; min-height:0; padding-right:0.5rem;" id="historyListContainer">
+        <!-- Lista de logs va acá -->
+        <div style="text-align:center; padding:1rem; opacity:0.6;">Cargando...</div>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-top:1rem;flex-shrink:0;">
+        <button class="config-btn" onclick="fetchConnectionHistory()" style="flex:1; background:linear-gradient(135deg,#0ea5e9,#3b82f6);">🔄 Actualizar</button>
+        <button class="config-btn" onclick="closeHistoryModal()" style="flex:1;background:linear-gradient(135deg,#6b7280,#4b5563);">❌ Cerrar</button>
+      </div>
     </div>
   </div>
 
@@ -1821,9 +1854,17 @@
           // Limpiar giftId de todos los regalos al cargar (eliminar espacios)
           gifts = data.map(gift => {
             const cleanedId = cleanGiftId(gift.giftId);
+
+            // Asegurar que las URLs de imagen locales apunten al backend correcto
+            let imgUrl = gift.image || '';
+            if (imgUrl.startsWith('/')) {
+              imgUrl = SERVER_BASE_URL + imgUrl;
+            }
+
             return {
               ...gift,
-              giftId: cleanedId !== null ? cleanedId : gift.giftId
+              giftId: cleanedId !== null ? cleanedId : gift.giftId,
+              image: imgUrl
             };
           });
           console.log(`✅ ${gifts.length} regalos cargados exitosamente`);
@@ -1939,43 +1980,134 @@
     let socket = null;
     let socketConnected = false;
 
+    // ─── SISTEMA DE CHAT / COMENTARIOS ───────────────────────────────────────
+    // Activa puntos por comentar el nombre del país o su bandera emoji
+    let chatPointsEnabled = JSON.parse(localStorage.getItem('chatPointsEnabled') ?? 'true');
+    const CHAT_POINTS_PER_COMMENT = 0.5; // Puntos por comentario
+    const CHAT_COOLDOWN_MS = 3000;       // Cooldown por usuario (3s anti-spam)
+    const CHAT_MAX_POINTS_PER_USER = 2;  // Máximo 2 puntos acumulables por usuario
+    const chatUserCooldowns = new Map(); // userId -> { lastTime, totalPoints }
+
     console.log('🔌 Socket URL:', SOCKET_URL);
+
+    // Timestamp de última actividad del socket (usado por el watchdog)
+    let lastActivityTime = Date.now();
 
     // Conectar al servidor Socket.IO
     function connectSocket() {
       try {
+        // Limpiar watchdog del socket anterior si existe
+        if (socket) {
+          try {
+            if (socket._watchdogInterval) clearInterval(socket._watchdogInterval);
+            socket.disconnect();
+          } catch(e){}
+        }
+
         socket = io(SOCKET_URL, {
-          transports: ['websocket', 'polling'],
+          // IMPORTANTE: polling PRIMERO — funciona en TODAS las redes (móvil, Render proxy).
+          // Socket.IO hará upgrade automático a WebSocket si la red lo permite.
+          transports: ['polling', 'websocket'],
+          // Reconexión automática ilimitada con backoff exponencial
           reconnection: true,
+          reconnectionAttempts: Infinity,
           reconnectionDelay: 1000,
-          reconnectionAttempts: 5
+          reconnectionDelayMax: 10000,
+          randomizationFactor: 0.5,
+          timeout: 45000,
         });
 
         socket.on('connect', () => {
           console.log('🟢 Conectado al servidor Socket.IO');
           socketConnected = true;
           updateSocketStatus(true);
+          // Pedir el estado actual de TikTok al servidor
+          socket.emit('tiktok:getStatus');
         });
 
-        socket.on('disconnect', () => {
-          console.log('🔴 Desconectado del servidor Socket.IO');
+        socket.on('disconnect', (reason) => {
+          console.log('🔴 Desconectado del servidor Socket.IO. Razón:', reason);
           socketConnected = false;
           updateSocketStatus(false);
+          // Si el servidor nos desconectó (no fue proactivo desde el cliente),
+          // Socket.IO auto-reconectará automáticamente gracias a reconnection:true
         });
 
         socket.on('connect_error', (error) => {
-          console.error('❌ Error de conexión Socket.IO:', error);
+          console.error('❌ Error de conexión Socket.IO:', error.message);
           socketConnected = false;
           updateSocketStatus(false);
         });
 
+        socket.on('reconnect', (attemptNumber) => {
+          console.log(`🔄 Reconectado al servidor (intento #${attemptNumber})`);
+          // Al reconectar, volver a solicitar estado de TikTok
+          const savedUser = localStorage.getItem('tiktokUsername');
+          if (savedUser && socket.tiktokUsername) {
+            socket.emit('tiktok:connect', { username: socket.tiktokUsername });
+          }
+        });
+
+        socket.on('reconnect_attempt', (attemptNumber) => {
+          console.log(`🔁 Reintentando conexión... intento #${attemptNumber}`);
+        });
+
+        // Keepalive del servidor: actualizar timestamp al recibirlo
+        socket.on('keepalive', () => { lastActivityTime = Date.now(); });
+
+        // ─────────────────────────────────────────────────────────────
+        // WATCHDOG: detecta socket zombie (connected=true pero sin datos)
+        // ─────────────────────────────────────────────────────────────
+        socket.on('pong', () => { lastActivityTime = Date.now(); });
+
+        // Solo registrar el watchdog y visibilitychange la PRIMERA VEZ
+        // (evita listeners duplicados cuando connectSocket() se llama varias veces)
+        if (!window._socketWatchdogRegistered) {
+          window._socketWatchdogRegistered = true;
+
+          setInterval(() => {
+            if (!socket || !socket.connected) return;
+            const elapsed = Date.now() - lastActivityTime;
+            if (elapsed > 55000) {
+              console.warn(`⚠️ WATCHDOG: Sin actividad por ${Math.round(elapsed/1000)}s. Reconectando...`);
+              socket.disconnect();
+              setTimeout(() => { if (socket) socket.connect(); }, 500);
+              lastActivityTime = Date.now();
+            }
+          }, 25000);
+
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+              setTimeout(() => {
+                if (!socket || !socket.connected) {
+                  console.log('📡 [VISIBILITY] Volvió al navegador. Reconectando...');
+                  if (socket) { socket.connect(); } else { connectSocket(); }
+                } else {
+                  socket.emit('tiktok:getStatus');
+                }
+                lastActivityTime = Date.now();
+              }, 500);
+            }
+          });
+        }
+
         // Escuchar regalos de TikTok
         socket.on('tiktok:gift', (giftData) => {
+          lastActivityTime = Date.now();
           handleGiftReceived(giftData);
+        });
+
+        // Escuchar comentarios de TikTok → puntos por chat
+        socket.on('tiktok:chat', (chatData) => {
+          lastActivityTime = Date.now();
+          if (chatPointsEnabled && gameStarted) {
+            handleChatComment(chatData);
+          }
         });
 
         // Escuchar estado de conexión de TikTok
         socket.on('tiktok:status', (status) => {
+          lastActivityTime = Date.now();
           updateTikTokStatus(status);
           updateTikTokConnectionStatus(status);
         });
@@ -1983,6 +2115,22 @@
         // Escuchar respuesta de conexión a TikTok
         socket.on('tiktok:connect:response', (response) => {
           updateTikTokConnectionStatus(response);
+        });
+
+        // 🆕 Regalo nuevo recibido en el live: añadir a la librería en tiempo real
+        socket.on('library:newGift', (gift) => {
+          if (!gift || !gift.giftId) return;
+          const alreadyExists = gifts.some(g => String(g.giftId) === String(gift.giftId));
+          if (!alreadyExists) {
+            gifts.push(gift);
+            console.log(`📚 Nuevo regalo añadido: ${gift.name} (💎${gift.diamonds})`);
+            if (document.getElementById('configModal')?.style.display !== 'none') {
+              renderGiftConfig();
+            }
+          } else {
+            const existing = gifts.find(g => String(g.giftId) === String(gift.giftId));
+            if (existing && gift.image) existing.image = gift.image;
+          }
         });
 
       } catch (error) {
@@ -2042,6 +2190,10 @@
       if (status.connected) {
         statusEl.textContent = '🟢 TikTok Live conectado - Recibiendo regalos';
         statusEl.style.color = '#22c55e';
+      } else if (status.reconnecting || status.connecting) {
+        // El servidor está auto-reconectando
+        statusEl.textContent = status.message || '🟡 Reconectando a TikTok automáticamente...';
+        statusEl.style.color = '#fbbf24';
       } else {
         if (status.error) {
           const errorMsg = status.error?.exception || status.error?.info || 'Error desconocido';
@@ -2053,14 +2205,12 @@
             statusEl.style.color = '#ef4444';
           }
 
-          // Agregar botón de recargar cuando hay error
+          // Agregar botón de reconectar
           const reloadBtn = document.createElement('button');
           reloadBtn.className = 'reload-tiktok-btn';
-          reloadBtn.textContent = '🔄 Recargar';
+          reloadBtn.textContent = '🔄 Reconectar';
           reloadBtn.style.cssText = 'padding:0.25rem 0.5rem;font-size:0.65rem;border:none;border-radius:4px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;cursor:pointer;font-weight:700;';
-          reloadBtn.onclick = function () {
-            connectTikTok();
-          };
+          reloadBtn.onclick = function () { connectTikTok(); };
           statusContainer.appendChild(reloadBtn);
         } else {
           statusEl.textContent = '🟡 Conectando a TikTok...';
@@ -2220,27 +2370,19 @@
         return;
       }
 
-      // Verificar si es el regalo especial (victoria inmediata) - SIN IMPORTAR PUNTOS ACTUALES
+      // Verificar si es el regalo especial (victoria inmediata)
       const specialGiftId = cleanGiftId(specialGift?.giftId);
       if (specialGift && giftId === specialGiftId) {
-        // Obtener el país que tiene el regalo especial en este momento (por índice)
-        let specialCountry = null;
-        if (specialGiftCountryIndex >= 0 && specialGiftCountryIndex < countries.length) {
-          specialCountry = countries[specialGiftCountryIndex];
-        }
-
-        // Si no se encuentra por índice, buscar por nombre (fallback)
-        if (!specialCountry && countries.length > 0) {
-          // Usar el primer país como fallback si el índice no es válido
-          specialCountry = countries[0];
-        }
-
+        
+        // Obtener SIEMPRE el país que la rotación muestra actualmente
+        const specialCountry = countries[specialGiftCountryIndex];
+        
         if (specialCountry) {
           const previousPoints = specialCountry.v;
-          console.log(`🏆 ¡REGALO ESPECIAL RECIBIDO! ${specialCountry.n} gana inmediatamente con ${giftName}!`);
+          console.log(`🏆 ¡REGALO ESPECIAL RECIBIDO! ${specialCountry.n} (que estaba en rotación) gana inmediatamente con ${giftName}! enviado por ${user?.name || 'Anónimo'}`);
           console.log(`   Puntos anteriores: ${previousPoints.toLocaleString()}, Meta: ${MAX.toLocaleString()}`);
 
-          // ASIGNAR LA META COMPLETA PARA GANAR INMEDIATAMENTE (sin importar puntos actuales)
+          // ASIGNAR LA META COMPLETA PARA GANAR INMEDIATAMENTE
           specialCountry.v = MAX;
           specialCountry.d = (specialCountry.d || 0) + (diamonds || 0);
 
@@ -2371,6 +2513,106 @@
       // Verificar si alguien ganó
       if (countries[0].v >= MAX) {
         endGame();
+      }
+    }
+
+    // ─── MANEJADOR DE COMENTARIOS DE CHAT ────────────────────────────────
+    function handleChatComment({ user, comment }) {
+      if (!comment || !gameStarted) return;
+
+      const textLower = comment.toLowerCase();
+      const now = Date.now();
+
+      // — Anti-spam per user —
+      const cooldownData = chatUserCooldowns.get(user);
+      if (cooldownData) {
+        if (now - cooldownData.lastTime < CHAT_COOLDOWN_MS) return; // cooldown activo
+        if (cooldownData.totalPoints >= CHAT_MAX_POINTS_PER_USER) return; // límite alcanzado
+      }
+
+      // — Buscar país por nombre o emoji bandera —
+      // El emoji bandera de un país se forma con letras indicadoras regionales.
+      // 🇨🇴 = CO (Colombia), 🇻🇪 = VE (Venezuela), etc.
+      function countryFlagEmoji(isoCode) {
+        return isoCode.toUpperCase().split('').map(c =>
+          String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)
+        ).join('');
+      }
+
+      let matchedCountry = null;
+      for (const c of countries) {
+        const nameLower = c.n.toLowerCase();
+        // Coincidencia por nombre (el comentario contiene el nombre del país)
+        if (textLower.includes(nameLower)) {
+          matchedCountry = c;
+          break;
+        }
+        // Coincidencia por emoji de bandera
+        const flagEmoji = countryFlagEmoji(c.f);
+        if (comment.includes(flagEmoji)) {
+          matchedCountry = c;
+          break;
+        }
+      }
+
+      if (!matchedCountry) return;
+
+      // Verificar que el país tenga puntos (ningún país sin regalo asignado puede ser votado)
+      if (!matchedCountry.gifts || matchedCountry.gifts.length === 0) return;
+
+      // Aplicar puntos
+      const points = CHAT_POINTS_PER_COMMENT;
+      matchedCountry.v = Math.min(matchedCountry.v + points, MAX);
+
+      // Actualizar cooldown
+      const prev = chatUserCooldowns.get(user) || { lastTime: 0, totalPoints: 0 };
+      chatUserCooldowns.set(user, {
+        lastTime: now,
+        totalPoints: prev.totalPoints + points
+      });
+
+      console.log(`💬 @${user} votó por ${matchedCountry.n} (+${points}pts)`);
+
+      // Mini toast visual — mostrar debajo del socketStatus
+      showChatToast(user, matchedCountry.n, matchedCountry.f);
+
+      // Renderizar
+      render();
+    }
+
+    // Muestra una mini notificación de voto por chat
+    let chatToastTimeout = null;
+    function showChatToast(user, countryName, countryFlag) {
+      let toast = document.getElementById('chatVoteToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'chatVoteToast';
+        toast.style.cssText = [
+          'position:fixed', 'bottom:80px', 'right:12px', 'z-index:9000',
+          'background:rgba(15,23,42,0.95)', 'border:1px solid rgba(34,211,238,.4)',
+          'border-radius:12px', 'padding:0.5rem 0.8rem',
+          'color:#fff', 'font-size:0.78rem', 'font-weight:700',
+          'box-shadow:0 4px 20px rgba(0,0,0,.5)',
+          'transition:opacity 0.4s', 'max-width:220px'
+        ].join(';');
+        document.body.appendChild(toast);
+      }
+      if (chatToastTimeout) clearTimeout(chatToastTimeout);
+      toast.style.opacity = '1';
+      toast.innerHTML = `💬 <span style="color:#38bdf8">@${user.substring(0,15)}</span> → <img src="https://flagcdn.com/w20/${countryFlag}.png" style="vertical-align:middle;width:16px;border-radius:2px"> ${countryName} <span style="color:#22d3ee">+0.5</span>`;
+      chatToastTimeout = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+    }
+
+    // Función para activar/desactivar puntos por comentarios
+    function toggleChatPoints() {
+      chatPointsEnabled = !chatPointsEnabled;
+      localStorage.setItem('chatPointsEnabled', JSON.stringify(chatPointsEnabled));
+      const btn = document.getElementById('chatPointsToggleBtn');
+      if (btn) {
+        btn.textContent = chatPointsEnabled ? '💬 Puntos por Chat: ON' : '💬 Puntos por Chat: OFF';
+        btn.style.background = chatPointsEnabled
+          ? 'linear-gradient(135deg,#22d3ee,#6366f1)'
+          : 'linear-gradient(135deg,#6b7280,#4b5563)';
       }
     }
 
@@ -3042,6 +3284,15 @@
         }, 1000);
       }
       renderWinsList();
+
+      // Inicializar estado del botón de chat
+      const chatBtn = document.getElementById('chatPointsToggleBtn');
+      if (chatBtn) {
+        chatBtn.textContent = chatPointsEnabled ? '💬 Puntos por Chat: ON' : '💬 Puntos por Chat: OFF';
+        chatBtn.style.background = chatPointsEnabled
+          ? 'linear-gradient(135deg,#22d3ee,#6366f1)'
+          : 'linear-gradient(135deg,#6b7280,#4b5563)';
+      }
     }
 
     // Guardar selección del regalo especial
@@ -3891,25 +4142,30 @@
 
             if (winsText) winsText.innerHTML = `<span class="${cupClass}">🏆</span> <span class="win-count-num">${wins}</span>`;
 
-            // Actualizar regalos (row-left)
+            // Actualizar regalos (row-left) — SOLO si cambiaron (evita parpadeo)
             const rowLeft = row.querySelector('.row-left');
             if (rowLeft) {
-              // Eliminar los regalos viejos
-              const oldGifts = rowLeft.querySelectorAll('img:not(.flag-img)');
-              oldGifts.forEach(g => g.remove());
-
-              // Insertar los nuevos regalos al principio
-              let newGiftsHTML = '';
               const countryGifts = c.gifts || [];
-              if (countryGifts.length > 0) {
-                countryGifts.forEach((gift, giftIdx) => {
-                  const giftData = getGiftById(gift.giftId);
-                  if (giftData) {
-                    newGiftsHTML += `<img src="${giftData.image}" style="width:24px; height:24px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.8));" alt="">`;
-                  }
+              // Construir lista de URLs nuevas
+              const newSrcs = countryGifts
+                .map(g => { const d = getGiftById(g.giftId); return d ? d.image : null; })
+                .filter(Boolean);
+              // Obtener imágenes de regalo existentes (excluye .flag-img)
+              const existingImgs = Array.from(rowLeft.querySelectorAll('img:not(.flag-img)'));
+              const existingSrcs = existingImgs.map(img => img.src);
+              // Comparar — si son iguales no tocar el DOM (sin parpadeo)
+              const changed = newSrcs.length !== existingSrcs.length ||
+                newSrcs.some((src, i) => src !== existingSrcs[i]);
+              if (changed) {
+                existingImgs.forEach(g => g.remove());
+                newSrcs.forEach(src => {
+                  const img = document.createElement('img');
+                  img.src = src;
+                  img.style.cssText = 'width:24px;height:24px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.8));';
+                  img.alt = '';
+                  rowLeft.insertBefore(img, rowLeft.firstChild);
                 });
               }
-              rowLeft.insertAdjacentHTML('afterbegin', newGiftsHTML);
             }
 
             // Reordenar visualmente usando order CSS
@@ -4483,6 +4739,73 @@
 
     // Inicializar configuración de regalos
     renderGiftConfig();
+
+    // --- LÓGICA DEL HISTORIAL DE CONEXIONES ---
+    function showHistoryModal() {
+      // Ocultar modal config principal para no superponer si se desea, o dejar ambos
+      // document.getElementById('configModal').style.display = 'none';
+      document.getElementById('historyModal').style.display = 'flex';
+      fetchConnectionHistory();
+    }
+
+    function closeHistoryModal() {
+      document.getElementById('historyModal').style.display = 'none';
+      // document.getElementById('configModal').style.display = 'flex';
+    }
+
+    async function fetchConnectionHistory() {
+      const container = document.getElementById('historyListContainer');
+      container.innerHTML = '<div style="text-align:center; padding:1rem; opacity:0.6;">Cargando historial...</div>';
+      
+      try {
+        const response = await fetch(`${SERVER_BASE_URL}/api/admin/history`);
+        if (!response.ok) throw new Error('Error al obtener el historial');
+        
+        const logs = await response.json();
+        
+        if (logs.length === 0) {
+          container.innerHTML = '<div style="text-align:center; padding:1rem; opacity:0.6;">Aún no hay conexiones registradas hoy.</div>';
+          return;
+        }
+
+        let html = '<div style="display:flex; flex-direction:column; gap:0.5rem;">';
+        
+        logs.forEach(log => {
+          const isSuccess = log.status === 'success';
+          const isBypass = log.type === 'bypass';
+          
+          const time = new Date(log.timestamp).toLocaleTimeString();
+          
+          let bgColor = isSuccess ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+          let borderColor = isSuccess ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+          let statusIcon = isSuccess ? '✅' : '❌';
+          
+          // Estilo distintivo para el Bypass
+          let typeLabel = isBypass ? '<span style="background:#fbbf24; color:#000; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.7rem;">BYPASS SECURE</span>' : '<span style="background:#3b82f6; color:#fff; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.7rem;">NATIVE</span>';
+
+          html += `
+            <div style="background: ${bgColor}; border: 1px solid ${borderColor}; padding: 0.6rem; border-radius: 8px; font-size: 0.85rem; display:flex; flex-direction:column; gap:0.3rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:900; color:#fff;">@${log.username}</span>
+                <span style="opacity:0.7; font-size:0.75rem;">${time}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:0.4rem;">
+                  ${statusIcon} ${typeLabel}
+                </div>
+                ${!isSuccess && log.errorMsg ? `<span style="color:#ef4444; font-size:0.75rem; max-width:60%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${log.errorMsg}">Error: ${log.errorMsg}</span>` : ''}
+              </div>
+            </div>
+          `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+        
+      } catch (err) {
+        container.innerHTML = `<div style="text-align:center; padding:1rem; color:#ef4444;">Error al conectar con Render API: ${err.message}</div>`;
+      }
+    }
 
     // Modos de Vista
     function setViewMode(mode) {

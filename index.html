@@ -3403,15 +3403,15 @@
         return;
       }
 
-      // Obtener regalos disponibles (solo regalos con más de 1000 diamonds)
-      const filteredGifts = gifts.filter(gift => (gift.diamonds || 0) > 1000);
+      // Obtener regalos disponibles (200 diamonds en adelante, de menor a mayor)
+      const filteredGifts = gifts.filter(gift => (gift.diamonds || 0) >= 200);
       const sortedGifts = [...filteredGifts].sort((a, b) => (a.diamonds || 0) - (b.diamonds || 0));
 
       // Si no hay regalos que cumplan el criterio
       if (sortedGifts.length === 0) {
         const emptyMsg = document.createElement('div');
         emptyMsg.className = 'gift-dropdown-empty';
-        emptyMsg.textContent = 'No hay regalos disponibles (mínimo 1000 diamonds)';
+        emptyMsg.textContent = 'No hay regalos disponibles (mínimo 200 diamonds)';
         dropdown.appendChild(emptyMsg);
         return;
       }
@@ -4206,21 +4206,21 @@
         return;
       }
 
-      // Si hay un regalo especial seleccionado, usarlo (solo si tiene más de 1000 diamonds)
+      // Si hay un regalo especial seleccionado, usarlo (desde 200 diamonds)
       if (selectedSpecialGiftId) {
         const gift = getGiftById(selectedSpecialGiftId);
-        if (gift && (gift.diamonds || 0) > 1000) {
+        if (gift && (gift.diamonds || 0) >= 200) {
           specialGift = gift;
-          specialGiftCountryIndex = 0; // Empezar con el primer país
+          specialGiftCountryIndex = 0;
           console.log(`🎁 Regalo especial: ${specialGift.name} (ID: ${specialGift.giftId})`);
 
           // Iniciar rotación
           startSpecialGiftRotation();
           updateSpecialGiftBanner();
           return;
-        } else if (gift && (gift.diamonds || 0) <= 1000) {
+        } else if (gift && (gift.diamonds || 0) < 200) {
           // Si el regalo seleccionado no cumple el criterio, limpiarlo
-          console.warn(`⚠️ El regalo especial seleccionado (${gift.name}) tiene ${gift.diamonds || 0} diamonds, se requiere más de 1000. Buscando otro regalo...`);
+          console.warn(`⚠️ El regalo especial seleccionado (${gift.name}) tiene ${gift.diamonds || 0} diamonds, se requiere mínimo 200. Buscando otro...`);
           selectedSpecialGiftId = null;
           saveSpecialGiftSelection();
         }
@@ -4239,14 +4239,14 @@
         }
       });
 
-      // Buscar un regalo que NO esté asignado Y tenga más de 1000 diamonds
+      // Buscar un regalo que NO esté asignado Y tenga mínimo 200 diamonds (fallback)
       const availableGifts = gifts.filter(g => {
         const cleanedId = cleanGiftId(g.giftId);
-        return cleanedId !== null && !assignedGiftIds.has(cleanedId) && (g.diamonds || 0) > 1000;
-      });
+        return cleanedId !== null && !assignedGiftIds.has(cleanedId) && (g.diamonds || 0) >= 200;
+      }).sort((a, b) => (a.diamonds || 0) - (b.diamonds || 0));
 
       if (availableGifts.length === 0) {
-        console.warn('⚠️ No hay regalos disponibles para el regalo especial (requiere más de 1000 diamonds y no estar asignado)');
+        console.warn('⚠️ No hay regalos disponibles para el regalo especial (requiere mínimo 200 diamonds y no estar asignado)');
         const banner = document.getElementById('specialGiftBanner');
         if (banner) banner.style.display = 'none';
         return;

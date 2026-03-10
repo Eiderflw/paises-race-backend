@@ -1981,11 +1981,12 @@
     let socketConnected = false;
 
     // ─── SISTEMA DE CHAT / COMENTARIOS ───────────────────────────────────────
-    let chatPointsEnabled = JSON.parse(localStorage.getItem('chatPointsEnabled') ?? 'true');
-    const CHAT_POINTS_PER_COMMENT = 0.5;
-    const CHAT_COOLDOWN_MS = 3000;
-    const CHAT_MAX_POINTS_PER_USER = 2;
-    const chatUserCooldowns = new Map();
+    // Leer correctamente (null si no existe = activar por defecto)
+    const _savedChat = localStorage.getItem('chatPointsEnabled');
+    let chatPointsEnabled = _savedChat !== null ? JSON.parse(_savedChat) : true;
+    const CHAT_POINTS_PER_COMMENT = 0.1; // Pequeño para interacción sin dominar la carrera
+    const CHAT_COOLDOWN_MS = 2000;       // 2s de cooldown entre comentarios por usuario
+    const chatUserCooldowns = new Map(); // userId -> lastTime (timestamp)
 
     // ─── REGALOS NUEVOS (badge 🆕) ──────────────────────────────────────────────
     // Guarda los IDs de regalos recibidos en vivo esta sesión (se limpia al asignarlos)
@@ -2549,16 +2550,11 @@
       const textLower = comment.toLowerCase();
       const now = Date.now();
 
-      // — Anti-spam per user —
-      const cooldownData = chatUserCooldowns.get(user);
-      if (cooldownData) {
-        if (now - cooldownData.lastTime < CHAT_COOLDOWN_MS) return; // cooldown activo
-        if (cooldownData.totalPoints >= CHAT_MAX_POINTS_PER_USER) return; // límite alcanzado
-      }
+      // Anti-spam: un usuario solo puede contar cada CHAT_COOLDOWN_MS
+      const lastTime = chatUserCooldowns.get(user) || 0;
+      if (now - lastTime < CHAT_COOLDOWN_MS) return;
 
-      // — Buscar país por nombre o emoji bandera —
-      // El emoji bandera de un país se forma con letras indicadoras regionales.
-      // 🇨🇴 = CO (Colombia), 🇻🇪 = VE (Venezuela), etc.
+      // Buscar país por nombre o emoji bandera
       function countryFlagEmoji(isoCode) {
         return isoCode.toUpperCase().split('').map(c =>
           String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)
@@ -2568,41 +2564,20 @@
       let matchedCountry = null;
       for (const c of countries) {
         const nameLower = c.n.toLowerCase();
-        // Coincidencia por nombre (el comentario contiene el nombre del país)
-        if (textLower.includes(nameLower)) {
-          matchedCountry = c;
-          break;
-        }
-        // Coincidencia por emoji de bandera
+        if (textLower.includes(nameLower)) { matchedCountry = c; break; }
         const flagEmoji = countryFlagEmoji(c.f);
-        if (comment.includes(flagEmoji)) {
-          matchedCountry = c;
-          break;
-        }
+        if (comment.includes(flagEmoji)) { matchedCountry = c; break; }
       }
 
       if (!matchedCountry) return;
-
-      // Verificar que el país tenga puntos (ningún país sin regalo asignado puede ser votado)
       if (!matchedCountry.gifts || matchedCountry.gifts.length === 0) return;
 
-      // Aplicar puntos
-      const points = CHAT_POINTS_PER_COMMENT;
-      matchedCountry.v = Math.min(matchedCountry.v + points, MAX);
+      // Aplicar puntos e interacción ilimitada
+      matchedCountry.v = Math.min(matchedCountry.v + CHAT_POINTS_PER_COMMENT, MAX);
+      chatUserCooldowns.set(user, now);
 
-      // Actualizar cooldown
-      const prev = chatUserCooldowns.get(user) || { lastTime: 0, totalPoints: 0 };
-      chatUserCooldowns.set(user, {
-        lastTime: now,
-        totalPoints: prev.totalPoints + points
-      });
-
-      console.log(`💬 @${user} votó por ${matchedCountry.n} (+${points}pts)`);
-
-      // Mini toast visual — mostrar debajo del socketStatus
+      console.log(`💬 @${user} votó por ${matchedCountry.n} (+${CHAT_POINTS_PER_COMMENT}pts)`);
       showChatToast(user, matchedCountry.n, matchedCountry.f);
-
-      // Renderizar
       render();
     }
 
@@ -4206,24 +4181,23 @@
             const rowLeft = row.querySelector('.row-left');
             if (rowLeft) {
               const countryGifts = c.gifts || [];
-              // Construir lista de URLs nuevas
               const newSrcs = countryGifts
                 .map(g => { const d = getGiftById(g.giftId); return d ? d.image : null; })
                 .filter(Boolean);
-              // Obtener imágenes de regalo existentes (excluye .flag-img)
               const existingImgs = Array.from(rowLeft.querySelectorAll('img:not(.flag-img)'));
               const existingSrcs = existingImgs.map(img => img.src);
-              // Comparar — si son iguales no tocar el DOM (sin parpadeo)
               const changed = newSrcs.length !== existingSrcs.length ||
                 newSrcs.some((src, i) => src !== existingSrcs[i]);
               if (changed) {
                 existingImgs.forEach(g => g.remove());
+                const flagImg = rowLeft.querySelector('.flag-img');
+                // Insertar en orden correcto ANTES de la bandera
                 newSrcs.forEach(src => {
                   const img = document.createElement('img');
                   img.src = src;
                   img.style.cssText = 'width:24px;height:24px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.8));';
                   img.alt = '';
-                  rowLeft.insertBefore(img, rowLeft.firstChild);
+                  rowLeft.insertBefore(img, flagImg);
                 });
               }
             }

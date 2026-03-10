@@ -2122,14 +2122,26 @@
           if (!gift || !gift.giftId) return;
           const alreadyExists = gifts.some(g => String(g.giftId) === String(gift.giftId));
           if (!alreadyExists) {
+            // Asegurar que la URL de imagen sea absoluta
+            if (gift.image && gift.image.startsWith('/')) {
+              gift.image = SERVER_BASE_URL + gift.image;
+            }
             gifts.push(gift);
             console.log(`📚 Nuevo regalo añadido: ${gift.name} (💎${gift.diamonds})`);
-            if (document.getElementById('configModal')?.style.display !== 'none') {
-              renderGiftConfig();
-            }
           } else {
+            // Actualizar imagen si cambió
             const existing = gifts.find(g => String(g.giftId) === String(gift.giftId));
             if (existing && gift.image) existing.image = gift.image;
+          }
+          // Siempre refrescar los dropdowns/config cuando cambia la biblioteca
+          // updateAllDropdowns: actualiza sólo el contenido interno sin reconstruir el DOM
+          // renderGiftConfig: solo si el modal está cerrado (primera carga)
+          const configVisible = document.getElementById('configModal')?.style.display !== 'none';
+          if (configVisible) {
+            // Actualizar todos los dropdowns abiertos Y los botones de selección
+            updateAllDropdowns();
+            // Actualizar también el dropdown de regalo especial
+            renderSpecialGiftDropdown();
           }
         });
 
@@ -3533,13 +3545,49 @@
       return availableGifts;
     }
 
-    // Actualizar todos los dropdowns para reflejar regalos disponibles
+    // Actualizar todos los dropdowns Y botones de selección para reflejar cambios en la biblioteca
     function updateAllDropdowns() {
       countries.forEach((country, countryIdx) => {
-        // Actualizar ambos slots (0 y 1)
         for (let slotIndex = 0; slotIndex < 2; slotIndex++) {
           const dropdown = document.getElementById(`gift-dropdown-${countryIdx}-${slotIndex}`);
-          if (!dropdown) continue;
+          const selectorBtn = document.getElementById(`gift-btn-${countryIdx}-${slotIndex}`);
+
+          // — Actualizar el botón selector (icono o placeholder) sin importar si el dropdown está abierto —
+          if (selectorBtn) {
+            const currentGiftData = country.gifts && country.gifts[slotIndex]
+              ? getGiftById(country.gifts[slotIndex].giftId)
+              : null;
+            // Limpiar contenido del botón (excepto la flecha)
+            const arrow = selectorBtn.querySelector('.arrow');
+            selectorBtn.innerHTML = '';
+            if (currentGiftData) {
+              const img = document.createElement('img');
+              img.src = currentGiftData.image;
+              img.alt = currentGiftData.name;
+              img.onerror = function() { this.style.display = 'none'; };
+              img.style.cssText = 'width:20px;height:20px;object-fit:contain;';
+              const nameSpan = document.createElement('span');
+              nameSpan.textContent = currentGiftData.name;
+              nameSpan.style.cssText = 'font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;';
+              selectorBtn.appendChild(img);
+              selectorBtn.appendChild(nameSpan);
+            } else {
+              const placeholder = document.createElement('span');
+              placeholder.className = 'placeholder';
+              placeholder.textContent = '-- Seleccionar --';
+              selectorBtn.appendChild(placeholder);
+            }
+            if (arrow) selectorBtn.appendChild(arrow);
+            else {
+              const newArrow = document.createElement('span');
+              newArrow.className = 'arrow';
+              newArrow.textContent = '▼';
+              selectorBtn.appendChild(newArrow);
+            }
+          }
+
+          // — Solo rellenar el dropdown si está abierto (visible) —
+          if (!dropdown || !dropdown.classList.contains('show')) continue;
 
           // Limpiar dropdown
           dropdown.innerHTML = '';
@@ -3601,15 +3649,11 @@
               }
               saveConfig();
 
-              // Actualizar UI
-              renderGiftConfig();
-
-              // Cerrar dropdown
-              const selectorBtn = document.getElementById(`gift-btn-${countryIdx}-${slotIndex}`);
-              if (selectorBtn) {
-                selectorBtn.classList.remove('active');
-              }
+              // Cerrar este dropdown y refrescar TODOS los dropdowns y botones
+              // Sin reconstruir el DOM completo (sin titilar)
               dropdown.classList.remove('show');
+              if (selectorBtn) selectorBtn.classList.remove('active');
+              updateAllDropdowns();
             });
 
             dropdown.appendChild(clearItem);
@@ -3720,14 +3764,12 @@
 
               saveConfig();
 
-              // Actualizar UI (esto actualizará todos los dropdowns)
-              renderGiftConfig();
+              // Actualizar todos los dropdowns y botones (sin reconstruir el DOM)
+              updateAllDropdowns();
 
-              // Cerrar dropdown
-              const selectorBtn = document.getElementById(`gift-btn-${countryIdx}-${slotIndex}`);
-              if (selectorBtn) {
-                selectorBtn.classList.remove('active');
-              }
+              // Cerrar solo este dropdown
+              const selectorBtnF = document.getElementById(`gift-btn-${countryIdx}-${slotIndex}`);
+              if (selectorBtnF) selectorBtnF.classList.remove('active');
               dropdown.classList.remove('show');
             });
 

@@ -408,16 +408,17 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
         cfgOptions.sessionId = session.sessionId;
         console.log(`[TikTok] 🔑 Usando Session ID provisto por el usuario para @${username}`);
         
-        if (session.ttTargetIdc) {
-            // El paquete tiktok-live-connector espera ttTargetIdc como propiedad principal de configuración
-            cfgOptions.ttTargetIdc = session.ttTargetIdc;
-            
-            // Mantenemos headers por si se requiere para la conexión inicial manual
-            cfgOptions.clientOptions = cfgOptions.clientOptions || {};
-            cfgOptions.clientOptions.headers = {
-                'Cookie': `tt-target-idc=${session.ttTargetIdc}; sessionid=${session.sessionId}`
-            };
-        }
+        // Si nos la da vacía porque el usuario en celular no sabe sacarla de sus cookies, asignamos una por defecto
+        const targetIdc = session.ttTargetIdc || 'useast1a';
+        
+        // El paquete tiktok-live-connector espera ttTargetIdc como propiedad principal de configuración
+        cfgOptions.ttTargetIdc = targetIdc;
+        
+        // Mantenemos headers por si se requiere para la conexión inicial manual
+        cfgOptions.clientOptions = cfgOptions.clientOptions || {};
+        cfgOptions.clientOptions.headers = {
+            'Cookie': `tt-target-idc=${targetIdc}; sessionid=${session.sessionId}`
+        };
     }
 
     try {

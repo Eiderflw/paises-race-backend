@@ -1747,7 +1747,6 @@
         <div class="config-group">
           <label class="config-label">🎁 Asignar Regalos a Países</label>
           <div class="config-scroll" id="countryGiftConfig"></div>
-          <button class="config-btn" onclick="downloadAllGiftImages()" style="margin-top:0.8rem;padding:0.6rem;font-size:0.85rem;background:linear-gradient(135deg,#f59e0b,#d97706);">📥 Descargar Todas las Imágenes</button>
         </div>
         <div class="config-group" style="margin-top:0.5rem;">
           <label class="config-label">💬 Puntos por Comentarios de Chat</label>
@@ -2452,35 +2451,6 @@
       document.getElementById('sessionId').value = '';
       document.getElementById('ttTargetIdc').value = '';
       alert("🗑️ Cookies limpiadas.");
-    }
-
-    // Petición para descargar todas las imágenes de regalos al servidor local
-    async function downloadAllGiftImages() {
-      if(!confirm("¿Deseas descargar todas las imágenes de los regalos al servidor para que no parpadeen? Esto puede tardar unos segundos si tienes muchos regalos nuevos.")) return;
-      
-      const btn = event.target;
-      const originalText = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = "⏳ Descargando... Espera...";
-      
-      try {
-        const HOST = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-            ? 'http://localhost:3001' 
-            : 'https://paises-race-backend.onrender.com';
-            
-        const response = await fetch(`${HOST}/api/gifts/download-images`, { method: 'POST' });
-        const result = await response.json();
-        if(result.success) {
-          alert(`✅ Éxito!\nDescargas nuevas: ${result.downloaded}\nYa existían: ${result.skipped}\nTotal regalos en BD: ${result.total}`);
-        } else {
-          alert(`❌ Error: ${result.message || result.error}`);
-        }
-      } catch (err) {
-        alert(`❌ Error de red: ${err.message}`);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-      }
     }
 
     // Manejar regalo recibido

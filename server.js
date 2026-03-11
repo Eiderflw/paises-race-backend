@@ -397,8 +397,7 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
         console.log(`[TikTok] ⚠️ Fallo inicial nativo/bypass (@${username}): ${err1.message}`);
         
         // ─── BYPASS FALLBACK (Euler) ───
-        // Solo usar Euler si NO hay Session ID, así no se gastan créditos innecesariamente
-        if (process.env.EULER_API_KEY && !session.sessionId) {
+        if (process.env.EULER_API_KEY) {
             console.log(`[TikTok] 🟡 Reintentando con API de Conexión Segura (Euler)...`);
             try {
                 const result = await tryConnect({ ...BASE_CONFIG, connectWithUniqueId: false, signApiKey: process.env.EULER_API_KEY });

@@ -319,7 +319,7 @@ function stopTikTokSession(username) {
 /**
  * Conecta a TikTok Live de forma persistente para un usuario dado y se auto-reconecta si se cae
  */
-async function connectToTikTokPersistent(username, manual = false) {
+async function connectToTikTokPersistent(username, manual = false, sessionId = '', ttTargetIdc = '') {
     let session = activeSessions.get(username);
     
     // Si no existe la sesión, la creamos
@@ -327,6 +327,8 @@ async function connectToTikTokPersistent(username, manual = false) {
         session = {
             connector: null,
             username: username,
+            sessionId: sessionId || '',
+            ttTargetIdc: ttTargetIdc || '',
             isConnected: false,
             reconnectTimer: null,
             reconnectAttempts: 0,
@@ -335,6 +337,10 @@ async function connectToTikTokPersistent(username, manual = false) {
             viewers: 0
         };
         activeSessions.set(username, session);
+    } else if (manual) {
+        // Actualizar cookies si se proveen manualmente en reconexión
+        if (sessionId) session.sessionId = sessionId;
+        if (ttTargetIdc) session.ttTargetIdc = ttTargetIdc;
     }
 
     if (manual) {
@@ -364,26 +370,44 @@ async function connectToTikTokPersistent(username, manual = false) {
     let connector = null;
     let roomState = null;
 
+    // Construir configuración
+    let cfgOptions = { ...BASE_CONFIG, connectWithUniqueId: false };
+    
+    // Inyectar Session ID si el usuario lo configuró
+    if (session.sessionId) {
+        cfgOptions.sessionId = session.sessionId;
+        console.log(`[TikTok] 🔑 Usando Session ID provisto por el usuario para @${username}`);
+        
+        if (session.ttTargetIdc) {
+            cfgOptions.clientOptions = cfgOptions.clientOptions || {};
+            cfgOptions.clientOptions.headers = {
+                'Cookie': `tt-target-idc=${session.ttTargetIdc}; sessionid=${session.sessionId}`
+            };
+        }
+    }
+
     try {
-        const result = await tryConnect({ ...BASE_CONFIG, connectWithUniqueId: false });
+        const result = await tryConnect(cfgOptions);
         connector = result.connector;
         roomState = result.roomState;
-        logConnection(username, 'native', 'success');
+        logConnection(username, session.sessionId ? 'sessionid_bypass' : 'native', 'success');
+        if (session.sessionId) console.log(`[TikTok] 🟢 Conexión Bypass (SessionID) exitosa a @${username}`);
     } catch (err1) {
-        logConnection(username, 'native', 'failed', err1.message);
-        console.log(`[TikTok] ⚠️ Fallo inicial nativo (@${username}): ${err1.message}`);
+        logConnection(username, session.sessionId ? 'sessionid_bypass' : 'native', 'failed', err1.message);
+        console.log(`[TikTok] ⚠️ Fallo inicial nativo/bypass (@${username}): ${err1.message}`);
         
-        // ─── BYPASS FALLBACK ───
-        if (process.env.EULER_API_KEY) {
-            console.log(`[TikTok] 🟡 Reintentando con API de Conexión Segura...`);
+        // ─── BYPASS FALLBACK (Euler) ───
+        // Solo usar Euler si NO hay Session ID, así no se gastan créditos innecesariamente
+        if (process.env.EULER_API_KEY && !session.sessionId) {
+            console.log(`[TikTok] 🟡 Reintentando con API de Conexión Segura (Euler)...`);
             try {
                 const result = await tryConnect({ ...BASE_CONFIG, connectWithUniqueId: false, signApiKey: process.env.EULER_API_KEY });
                 connector = result.connector;
                 roomState = result.roomState;
-                logConnection(username, 'bypass', 'success');
-                console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Bypass Anti-Bloqueo`);
+                logConnection(username, 'euler_bypass', 'success');
+                console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Euler API`);
             } catch (err2) {
-                logConnection(username, 'bypass', 'failed', err2.message);
+                logConnection(username, 'euler_bypass', 'failed', err2.message);
                 console.error(`[TikTok] ❌ Fallo Bypass (@${username}): ${err2.message}`);
                 handleConnectionError(err2.message);
                 return;
@@ -545,7 +569,7 @@ io.on('connection', (socket) => {
     });
     
     // El cliente pide conectar a TikTok
-    socket.on('tiktok:connect', async ({ username } = {}) => {
+    socket.on('tiktok:connect', async ({ username, sessionId, ttTargetIdc } = {}) => {
         if (!username) {
             socket.emit('tiktok:connect:response', { connected: false, error: { info: 'Username requerido' } });
             return;
@@ -572,10 +596,16 @@ io.on('connection', (socket) => {
             // Ya está conectada, solo le enviamos el estado al nuevo socket / nueva pestaña
             socket.emit('tiktok:status', { connected: true, username: cleanUsername, viewers: session.viewers });
             socket.emit('tiktok:connect:response', { connected: true, username: cleanUsername, message: `Conectado a @${cleanUsername} ✅ (Sesión Restaurada)` });
+            
+            // Si el cliente envía una cookie nueva o limpia diferente a la guardada, reconectamos silenciosamente
+            if (sessionId !== undefined && sessionId !== session.sessionId) {
+                console.log(`[WS] 🔑 Cookies nuevas detectadas para @${cleanUsername}, reconectando silenciosamente...`);
+                await connectToTikTokPersistent(cleanUsername, true, sessionId, ttTargetIdc);
+            }
         } else {
-            // No existe o se desconectó, iniciar proceso
+            // No existe o se desconectó, iniciar proceso completo con las cookies(si hay)
             socket.emit('tiktok:connect:response', { connecting: true, message: `🟡 Conectando a @${cleanUsername}...` });
-            await connectToTikTokPersistent(cleanUsername, true);
+            await connectToTikTokPersistent(cleanUsername, true, sessionId, ttTargetIdc);
         }
     });
 

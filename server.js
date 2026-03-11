@@ -400,55 +400,70 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
     let connector = null;
     let roomState = null;
 
-    // Construir configuración
-    let cfgOptions = { ...BASE_CONFIG, connectWithUniqueId: false };
-    
-    // Inyectar Session ID si el usuario lo configuró
-    if (session.sessionId) {
-        cfgOptions.sessionId = session.sessionId;
-        console.log(`[TikTok] 🔑 Usando Session ID provisto por el usuario para @${username}`);
-        
-        // Si nos la da vacía porque el usuario en celular no sabe sacarla de sus cookies, asignamos una por defecto
-        const targetIdc = session.ttTargetIdc || 'useast1a';
-        
-        // El paquete tiktok-live-connector espera ttTargetIdc como propiedad principal de configuración
-        cfgOptions.ttTargetIdc = targetIdc;
-        
-        // Mantenemos headers por si se requiere para la conexión inicial manual
-        cfgOptions.clientOptions = cfgOptions.clientOptions || {};
-        cfgOptions.clientOptions.headers = {
-            'Cookie': `tt-target-idc=${targetIdc}; sessionid=${session.sessionId}`
-        };
-    }
-
     try {
-        const result = await tryConnect(cfgOptions);
-        connector = result.connector;
-        roomState = result.roomState;
-        logConnection(username, session.sessionId ? 'sessionid_bypass' : 'native', 'success');
-        if (session.sessionId) console.log(`[TikTok] 🟢 Conexión Bypass (SessionID) exitosa a @${username}`);
-    } catch (err1) {
-        logConnection(username, session.sessionId ? 'sessionid_bypass' : 'native', 'failed', err1.message);
-        console.log(`[TikTok] ⚠️ Fallo inicial nativo/bypass (@${username}): ${err1.message}`);
+        // INTENTO 1: NATIVO PURO (Sin SessionID)
+        const nativeCfg = { ...BASE_CONFIG, connectWithUniqueId: false };
+        console.log(`[TikTok] 🟢 Intentando conexión NATIVA principal para @${username}...`);
+        const result1 = await tryConnect(nativeCfg);
+        connector = result1.connector;
+        roomState = result1.roomState;
+        logConnection(username, 'native', 'success');
+        console.log(`[TikTok] ✅ Conexión Nativa exitosa a @${username}`);
         
-        // ─── BYPASS FALLBACK (Euler) ───
-        if (process.env.EULER_API_KEY) {
-            console.log(`[TikTok] 🟡 Reintentando con API de Conexión Segura (Euler)...`);
+    } catch (err1) {
+        logConnection(username, 'native', 'failed', err1.message);
+        console.log(`[TikTok] ⚠️ Fallo conexión Nativa (@${username}): ${err1.message}`);
+
+        // INTENTO 2: SESSION ID (Si fue provisto por el usuario)
+        let sessionIdSuccess = false;
+        if (session.sessionId) {
+            console.log(`[TikTok] 🔑 Reintentando con Session ID provisto por el usuario...`);
+            const targetIdc = session.ttTargetIdc || 'useast1a';
+            const sessionCfg = { 
+                ...BASE_CONFIG, 
+                connectWithUniqueId: false,
+                sessionId: session.sessionId,
+                ttTargetIdc: targetIdc,
+                clientOptions: {
+                    headers: { 'Cookie': `tt-target-idc=${targetIdc}; sessionid=${session.sessionId}` }
+                }
+            };
+
             try {
-                const result = await tryConnect({ ...BASE_CONFIG, connectWithUniqueId: false, signApiKey: process.env.EULER_API_KEY });
-                connector = result.connector;
-                roomState = result.roomState;
-                logConnection(username, 'euler_bypass', 'success');
-                console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Euler API`);
+                const result2 = await tryConnect(sessionCfg);
+                connector = result2.connector;
+                roomState = result2.roomState;
+                logConnection(username, 'sessionid_bypass', 'success');
+                console.log(`[TikTok] 🟢 Conexión Bypass (SessionID) exitosa a @${username}`);
+                sessionIdSuccess = true;
             } catch (err2) {
-                logConnection(username, 'euler_bypass', 'failed', err2.message);
-                console.error(`[TikTok] ❌ Fallo Bypass (@${username}): ${err2.message}`);
-                handleConnectionError(err2.message);
+                logConnection(username, 'sessionid_bypass', 'failed', err2.message);
+                console.log(`[TikTok] ⚠️ Fallo conexión SessionID (@${username}): ${err2.message}`);
+            }
+        }
+
+        // INTENTO 3: EULER STREAM (Si falló Nativo y falló/no-había SessionID)
+        if (!sessionIdSuccess) {
+            if (process.env.EULER_API_KEY) {
+                console.log(`[TikTok] 🟡 Reintentando con API de Conexión Segura (Euler)...`);
+                try {
+                    const eulerCfg = { ...BASE_CONFIG, connectWithUniqueId: false, signApiKey: process.env.EULER_API_KEY };
+                    const result3 = await tryConnect(eulerCfg);
+                    connector = result3.connector;
+                    roomState = result3.roomState;
+                    logConnection(username, 'euler_bypass', 'success');
+                    console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Euler API`);
+                } catch (err3) {
+                    logConnection(username, 'euler_bypass', 'failed', err3.message);
+                    console.error(`[TikTok] ❌ Fallo Bypass Euler (@${username}): ${err3.message}`);
+                    handleConnectionError(err3.message);
+                    return;
+                }
+            } else {
+                // No hay Euler, y los demás fallaron
+                handleConnectionError(err1.message);
                 return;
             }
-        } else {
-            handleConnectionError(err1.message);
-            return;
         }
     }
 

@@ -112,14 +112,29 @@ function loadGiftsDatabase() {
             const database = JSON.parse(raw);
 
             Object.values(database).forEach(gift => {
+                let localImgPath = gift.localImage;
+                
+                // VERIFICACION: ¿El archivo existe realmente en disco?
+                if (localImgPath) {
+                    const physicalPath = path.join(__dirname, localImgPath);
+                    if (!fs.existsSync(physicalPath)) {
+                        console.warn(`[GIFTS DB] ⚠️ Imagen local no encontrada para ${gift.name}: ${physicalPath}. Forzando re-descarga.`);
+                        localImgPath = null;
+                        gift.localImage = null; // Actualizar DB en memoria para que se guarde sin local
+                    }
+                }
+
                 receivedGifts.set(gift.name, {
                     id: gift.id || null,
                     name: gift.name,
                     diamondCount: gift.diamondCount || 0,
                     imageUrl: gift.imageUrl || '',
-                    localImage: gift.localImage || null
+                    localImage: localImgPath
                 });
             });
+
+            // Si cambiamos algo en memoria (imágenes perdidas), guardamos
+            fs.writeFileSync(GIFTS_DB_PATH, JSON.stringify(database, null, 2), 'utf8');
 
             console.log(`[GIFTS DB] ✅ ${Object.keys(database).length} regalos cargados desde la BD`);
             return database;
@@ -214,13 +229,28 @@ async function saveGiftToDatabase(giftData) {
                     if (giftData.id) inMem.id = giftData.id;
                 }
             }
-            // Intentar descargar imagen si no hay local
+            // Intentar descargar imagen si no hay local o si el archivo físico se perdió
+            let needsDownload = false;
             if (!existing.localImage && giftData.imageUrl) {
+                needsDownload = true;
+            } else if (existing.localImage) {
+                const physicalPath = path.join(__dirname, existing.localImage);
+                if (!fs.existsSync(physicalPath)) {
+                    needsDownload = true;
+                }
+            }
+
+            if (needsDownload) {
                 const localPath = await downloadGiftImage(giftData.imageUrl, giftData.name);
                 if (localPath) {
                     existing.localImage = localPath;
                     const inMem = receivedGifts.get(giftData.name);
                     if (inMem) inMem.localImage = localPath;
+                } else if (existing.localImage && giftData.imageUrl) {
+                   // Si falló la descarga pero decía tener imagen, borrar la referencia falsa
+                   existing.localImage = null;
+                   const inMem = receivedGifts.get(giftData.name);
+                   if (inMem) inMem.localImage = null;
                 }
             }
             fs.writeFileSync(GIFTS_DB_PATH, JSON.stringify(database, null, 2), 'utf8');
@@ -780,11 +810,24 @@ app.post('/api/gifts/download-images', async (req, res) => {
         let skipped = 0;
 
         for (const gift of entries) {
+            let needsDownload = false;
             if (!gift.localImage && gift.imageUrl) {
+                needsDownload = true;
+            } else if (gift.localImage) {
+                const physicalPath = path.join(__dirname, gift.localImage);
+                if (!fs.existsSync(physicalPath)) {
+                    needsDownload = true;
+                }
+            }
+
+            if (needsDownload) {
                 const localPath = await downloadGiftImage(gift.imageUrl, gift.name);
                 if (localPath) {
                     gift.localImage = localPath;
                     downloaded++;
+                } else if (gift.localImage && gift.imageUrl) {
+                    // Falló la descarga pero decía tenerlo
+                    gift.localImage = null;
                 }
             } else {
                 skipped++;

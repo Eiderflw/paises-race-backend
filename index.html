@@ -2445,6 +2445,14 @@
       alert("✅ Cookies guardadas. Por favor, conecta nuevamente a TikTok.");
     }
 
+    // Cargar automáticamente las cookies guardadas al iniciar la página
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedSid = localStorage.getItem('sessionId');
+      const savedTtc = localStorage.getItem('ttTargetIdc');
+      if (savedSid) document.getElementById('sessionId').value = savedSid;
+      if (savedTtc) document.getElementById('ttTargetIdc').value = savedTtc;
+    });
+
     function clearCookiesBtn() {
       localStorage.removeItem('sessionId');
       localStorage.removeItem('ttTargetIdc');

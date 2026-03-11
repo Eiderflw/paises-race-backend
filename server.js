@@ -409,6 +409,10 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
         console.log(`[TikTok] 🔑 Usando Session ID provisto por el usuario para @${username}`);
         
         if (session.ttTargetIdc) {
+            // El paquete tiktok-live-connector espera ttTargetIdc como propiedad principal de configuración
+            cfgOptions.ttTargetIdc = session.ttTargetIdc;
+            
+            // Mantenemos headers por si se requiere para la conexión inicial manual
             cfgOptions.clientOptions = cfgOptions.clientOptions || {};
             cfgOptions.clientOptions.headers = {
                 'Cookie': `tt-target-idc=${session.ttTargetIdc}; sessionid=${session.sessionId}`

@@ -3515,7 +3515,15 @@
         const giftImg = document.createElement('img');
         giftImg.src = gift.image;
         giftImg.alt = gift.name;
-        giftImg.onerror = function () { this.style.display = 'none'; };
+        giftImg.onerror = function () { 
+          if(!this.getAttribute('data-tried-fallback')) {
+            this.setAttribute('data-tried-fallback', 'true');
+            if(gift.imageUrl) this.src = gift.imageUrl;
+            else this.style.display = 'none';
+          } else {
+            this.style.display = 'none';
+          }
+        };
 
         const giftName = document.createElement('span');
         giftName.className = 'gift-name';
@@ -3637,7 +3645,15 @@
               const img = document.createElement('img');
               img.src = currentGiftData.image;
               img.alt = currentGiftData.name;
-              img.onerror = function() { this.style.display = 'none'; };
+              img.onerror = function() { 
+                if(!this.getAttribute('data-tried-fallback')) {
+                  this.setAttribute('data-tried-fallback', 'true');
+                  if(currentGiftData.imageUrl) this.src = currentGiftData.imageUrl;
+                  else this.style.display = 'none';
+                } else {
+                  this.style.display = 'none';
+                }
+              };
               img.style.cssText = 'width:20px;height:20px;object-fit:contain;';
               const nameSpan = document.createElement('span');
               nameSpan.textContent = currentGiftData.name;
@@ -3779,7 +3795,15 @@
             const giftImg = document.createElement('img');
             giftImg.src = gift.image;
             giftImg.alt = gift.name;
-            giftImg.onerror = function () { this.style.display = 'none'; };
+            giftImg.onerror = function () { 
+              if(!this.getAttribute('data-tried-fallback')) {
+                this.setAttribute('data-tried-fallback', 'true');
+                if(gift.imageUrl) this.src = gift.imageUrl;
+                else this.style.display = 'none';
+              } else {
+                this.style.display = 'none';
+              }
+            };
 
             const giftName = document.createElement('span');
             giftName.className = 'gift-name';
@@ -3928,7 +3952,15 @@
             const img = document.createElement('img');
             img.src = currentGift.image;
             img.alt = currentGift.name;
-            img.onerror = function () { this.style.display = 'none'; };
+            img.onerror = function () { 
+              if(!this.getAttribute('data-tried-fallback')) {
+                this.setAttribute('data-tried-fallback', 'true');
+                if(currentGift.imageUrl) this.src = currentGift.imageUrl;
+                else this.style.display = 'none';
+              } else {
+                this.style.display = 'none';
+              }
+            };
             selectorBtn.appendChild(img);
           } else {
             const placeholder = document.createElement('span');
@@ -4003,6 +4035,12 @@
         const gift = getGiftById(selectedGiftId);
         if (gift && preview) {
           preview.src = gift.image;
+          preview.onerror = function() {
+            if(!this.getAttribute('data-tried-fallback')) {
+              this.setAttribute('data-tried-fallback', 'true');
+              if(gift.imageUrl) this.src = gift.imageUrl;
+            }
+          };
           preview.style.display = 'inline-block';
         }
       } else {
@@ -4161,7 +4199,8 @@
             countryGifts.forEach((gift, giftIdx) => {
               const giftData = getGiftById(gift.giftId);
               if (giftData) {
-                giftsHTML += `<img src="${giftData.image}" style="width:24px; height:24px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.8));" alt="">`;
+                const fallbackAttr = `onerror="if(!this.getAttribute('data-tried-fallback')){this.setAttribute('data-tried-fallback','true');this.src='${giftData.imageUrl}';}"`;
+                giftsHTML += `<img src="${giftData.image}" ${fallbackAttr} style="width:24px; height:24px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.8));" alt="">`;
               }
             });
           }
@@ -4276,9 +4315,17 @@
                 existingImgs.forEach(g => g.remove());
                 const flagImg = rowLeft.querySelector('.flag-img');
                 // Insertar en orden correcto ANTES de la bandera
-                newSrcs.forEach(src => {
+                newSrcs.forEach((src, i) => {
+                  const gift = countryGifts[i];
+                  const giftData = gift ? getGiftById(gift.giftId) : null;
                   const img = document.createElement('img');
                   img.src = src;
+                  img.onerror = function() {
+                    if(!this.getAttribute('data-tried-fallback')) {
+                      this.setAttribute('data-tried-fallback', 'true');
+                      if(giftData && giftData.imageUrl) this.src = giftData.imageUrl;
+                    }
+                  };
                   img.style.cssText = 'width:24px;height:24px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.8));';
                   img.alt = '';
                   rowLeft.insertBefore(img, flagImg);

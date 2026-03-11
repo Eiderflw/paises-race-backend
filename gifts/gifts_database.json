@@ -11,7 +11,7 @@
     "name": "Heart Me",
     "id": 7934,
     "diamondCount": 1,
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/maliva/webcast-va/d56945782445b0b8c8658ed44f894c7b~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/d56945782445b0b8c8658ed44f894c7b~tplv-obj.png",
     "localImage": "/gifts/images/heart_me.png",
     "firstReceived": "2026-01-30T03:02:53.205Z"
   },
@@ -19,7 +19,7 @@
     "name": "Rose",
     "id": 5655,
     "diamondCount": 1,
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.png",
     "localImage": "/gifts/images/rose.png",
     "firstReceived": "2026-01-30T03:03:21.038Z"
   },
@@ -27,7 +27,7 @@
     "name": "Love you so much",
     "id": 15231,
     "diamondCount": 1,
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/fc549cf1bc61f9c8a1c97ebab68dced7.png~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/fc549cf1bc61f9c8a1c97ebab68dced7.png~tplv-obj.png",
     "localImage": "/gifts/images/love_you_so_much.png",
     "firstReceived": "2026-01-30T03:03:21.679Z"
   },
@@ -35,7 +35,7 @@
     "name": "GG",
     "id": 6064,
     "diamondCount": 1,
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.png",
     "localImage": "/gifts/images/gg.png",
     "firstReceived": "2026-01-30T03:03:23.329Z"
   },
@@ -267,7 +267,7 @@
     "name": "Chili",
     "id": 7086,
     "diamondCount": 1,
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/maliva/webcast-va/b8ded3f3d633620616a74e4f30163836~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/b8ded3f3d633620616a74e4f30163836~tplv-obj.png",
     "localImage": "/gifts/images/chili.png",
     "firstReceived": "2026-02-02T17:34:48.045Z"
   },
@@ -463,5 +463,21 @@
     "imageUrl": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/6703facdac34caefbd0617a6321afe9b.png~tplv-obj.png",
     "localImage": "/gifts/images/capybara.png",
     "firstReceived": "2026-03-09T04:22:19.098Z"
+  },
+  "Fireworks": {
+    "name": "Fireworks",
+    "id": 6090,
+    "diamondCount": 1088,
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/9494c8a0bc5c03521ef65368e59cc2b8~tplv-obj.png",
+    "localImage": "/gifts/images/fireworks.png",
+    "firstReceived": "2026-03-11T06:47:24.670Z"
+  },
+  "DJ Glasses": {
+    "name": "DJ Glasses",
+    "id": 11583,
+    "diamondCount": 500,
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/d4aad726e2759e54a924fbcd628ea143.png~tplv-obj.png",
+    "localImage": "/gifts/images/dj_glasses.png",
+    "firstReceived": "2026-03-11T06:51:18.394Z"
   }
 }

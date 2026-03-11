@@ -706,7 +706,7 @@ app.get('/api/gifts/database', (req, res) => {
                     giftId: g.id,
                     name: g.name,
                     diamonds: g.diamondCount,
-                    image: g.localImage ? `http://localhost:${PORT}${g.localImage}` : g.imageUrl || '',
+                    image: g.localImage ? g.localImage : g.imageUrl || '',
                     imageUrl: g.imageUrl || '',
                     localImage: g.localImage || null,
                     firstReceived: g.firstReceived || null

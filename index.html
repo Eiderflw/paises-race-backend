@@ -1750,12 +1750,35 @@
         </div>
         <div class="config-group" style="margin-top:0.5rem;">
           <label class="config-label">💬 Puntos por Comentarios de Chat</label>
-          <button id="chatPointsToggleBtn" onclick="toggleChatPoints()"
-            style="width:100%;padding:0.65rem;border:none;border-radius:14px;font-weight:900;cursor:pointer;font-size:0.9rem;background:linear-gradient(135deg,#22d3ee,#6366f1);color:#020617;">
-            💬 Puntos por Chat: ON
-          </button>
-          <div style="margin-top:0.4rem;font-size:0.72rem;opacity:0.65;text-align:center;">
-            Comentar el nombre del país o su 🏳️ emoji da +0.5pts (cooldown 3s por usuario)
+          <div style="display:flex;gap:0.5rem;">
+            <button id="chatPointsToggleBtn" onclick="toggleChatPoints()"
+              style="flex:1;padding:0.65rem;border:none;border-radius:14px;font-weight:900;cursor:pointer;font-size:0.85rem;background:linear-gradient(135deg,#22d3ee,#6366f1);color:#020617;">
+              💬 Chat: ON
+            </button>
+            <button id="difficultyToggleBtn" onclick="toggleDifficulty()"
+              style="flex:1;padding:0.65rem;border:none;border-radius:14px;font-weight:900;cursor:pointer;font-size:0.85rem;background:linear-gradient(135deg,#6b7280,#4b5563);color:#fff;">
+              🎯 Dificultad: OFF
+            </button>
+          </div>
+          <div style="margin-top:0.6rem;">
+            <details id="difficultyConfigDetails">
+              <summary style="cursor:pointer;color:#94a3b8;font-size:0.8rem;user-select:none;font-weight:bold;padding:6px 0;">⚙️ Configurar puntos y dificultad</summary>
+              <div style="margin-top:0.8rem;display:flex;flex-direction:column;gap:0.8rem;background:rgba(0,0,0,0.2);padding:0.8rem;border-radius:10px;border:1px solid rgba(255,255,255,0.08);">
+                <div>
+                  <label style="display:block;font-size:0.78rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">🎯 Multiplicador de regalo (Dificultad)</label>
+                  <input type="number" id="difficultyMultiplierInput" min="0.1" max="100" step="0.1" value="1"
+                    class="config-input" style="padding:0.5rem;font-size:0.9rem;">
+                  <div id="difficultyHint" style="font-size:0.7rem;opacity:0.6;text-align:center;margin-top:0.3rem;">1 diamante = 1 punto (normal)</div>
+                </div>
+                <div>
+                  <label style="display:block;font-size:0.78rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">💬 Puntos por comentario de chat</label>
+                  <input type="number" id="chatPointsValueInput" min="0.01" max="100" step="0.01" value="0.1"
+                    class="config-input" style="padding:0.5rem;font-size:0.9rem;">
+                  <div style="font-size:0.7rem;opacity:0.6;text-align:center;margin-top:0.3rem;">Cada comentario válido da estos puntos al país</div>
+                </div>
+                <button onclick="saveDifficultyConfig()" style="padding:0.6rem;border:none;border-radius:12px;font-weight:900;cursor:pointer;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:0.85rem;">💾 Guardar configuración</button>
+              </div>
+            </details>
           </div>
         </div>
       </div>
@@ -1850,7 +1873,7 @@
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
     // --- CONFIGURACIÓN DE DESPLIEGUE ---
-    const RENDER_URL = 'https://paises-race-server.onrender.com'; // URL de backend en Render
+    const RENDER_URL = 'https://apipais.samyflw.com'; // URL de backend seguro en VPS con subdominio unico en raiz
     // ----------------------------------
 
     const SERVER_BASE_URL = isLocal ? 'http://localhost:3001' : (window.location.origin.includes('onrender') ? window.location.origin : RENDER_URL);
@@ -2033,9 +2056,13 @@
     // Leer correctamente (null si no existe = activar por defecto)
     const _savedChat = localStorage.getItem('chatPointsEnabled');
     let chatPointsEnabled = _savedChat !== null ? JSON.parse(_savedChat) : true;
-    const CHAT_POINTS_PER_COMMENT = 0.1; // Pequeño para interacción sin dominar la carrera
+    let chatPointsPerComment = parseFloat(localStorage.getItem('chatPointsPerComment') ?? '0.1');
     const CHAT_COOLDOWN_MS = 2000;       // 2s de cooldown entre comentarios por usuario
     const chatUserCooldowns = new Map(); // userId -> lastTime (timestamp)
+
+    // ─── SISTEMA DE DIFICULTAD ───────────────────────────────────────────────
+    let difficultyEnabled    = JSON.parse(localStorage.getItem('difficultyEnabled') ?? 'false');
+    let difficultyMultiplier = parseFloat(localStorage.getItem('difficultyMultiplier') ?? '1');
 
     // ─── REGALOS NUEVOS (badge 🆕) ──────────────────────────────────────────────
     // Guarda los IDs de regalos recibidos en vivo esta sesión (se limpia al asignarlos)
@@ -2524,7 +2551,9 @@
       // Calcular puntos: usar solo los diamantes del regalo
       // NOTA: repeatCount es el número de regalo en el combo, no un multiplicador
       // Cada evento GIFT ya representa un regalo individual, así que usamos solo diamonds
-      const points = diamonds || 0;
+      const rawDiamonds = diamonds || 0;
+      // Aplicar multiplicador de dificultad si está activado
+      const points = difficultyEnabled ? rawDiamonds * difficultyMultiplier : rawDiamonds;
 
       // Sumar puntos al país
       const previousValue = country.v;
@@ -2653,10 +2682,10 @@
       if (!matchedCountry.gifts || matchedCountry.gifts.length === 0) return;
 
       // Aplicar puntos e interacción ilimitada
-      matchedCountry.v = Math.min(matchedCountry.v + CHAT_POINTS_PER_COMMENT, MAX);
+      matchedCountry.v = Math.min(matchedCountry.v + chatPointsPerComment, MAX);
       chatUserCooldowns.set(user, now);
 
-      console.log(`💬 @${user} votó por ${matchedCountry.n} (+${CHAT_POINTS_PER_COMMENT}pts)`);
+      console.log(`💬 @${user} votó por ${matchedCountry.n} (+${chatPointsPerComment}pts)`);
       showChatToast(user, matchedCountry.n, matchedCountry.f);
       render();
     }
@@ -2680,7 +2709,7 @@
       }
       if (chatToastTimeout) clearTimeout(chatToastTimeout);
       toast.style.opacity = '1';
-      toast.innerHTML = `💬 <span style="color:#38bdf8">@${user.substring(0,15)}</span> → <img src="https://flagcdn.com/w20/${countryFlag}.png" style="vertical-align:middle;width:16px;border-radius:2px"> ${countryName} <span style="color:#22d3ee">+0.5</span>`;
+      toast.innerHTML = `💬 <span style="color:#38bdf8">@${user.substring(0,15)}</span> → <img src="https://flagcdn.com/w20/${countryFlag}.png" style="vertical-align:middle;width:16px;border-radius:2px"> ${countryName} <span style="color:#22d3ee">+${chatPointsPerComment}</span>`;
       chatToastTimeout = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
     }
 
@@ -2690,11 +2719,112 @@
       localStorage.setItem('chatPointsEnabled', JSON.stringify(chatPointsEnabled));
       const btn = document.getElementById('chatPointsToggleBtn');
       if (btn) {
-        btn.textContent = chatPointsEnabled ? '💬 Puntos por Chat: ON' : '💬 Puntos por Chat: OFF';
+        btn.textContent = chatPointsEnabled ? '💬 Chat: ON' : '💬 Chat: OFF';
+        btn.style.color = chatPointsEnabled ? '#020617' : '#fff';
         btn.style.background = chatPointsEnabled
           ? 'linear-gradient(135deg,#22d3ee,#6366f1)'
           : 'linear-gradient(135deg,#6b7280,#4b5563)';
       }
+    }
+
+    // ─── FUNCIONES DE DIFICULTAD ─────────────────────────────────────────────
+    function toggleDifficulty() {
+      difficultyEnabled = !difficultyEnabled;
+      localStorage.setItem('difficultyEnabled', JSON.stringify(difficultyEnabled));
+      updateDifficultyBtn();
+    }
+
+    function updateDifficultyBtn() {
+      const btn = document.getElementById('difficultyToggleBtn');
+      if (!btn) return;
+      if (difficultyEnabled) {
+        btn.textContent = `🎯 Dificultad: ON (×${difficultyMultiplier})`;
+        btn.style.background = 'linear-gradient(135deg,#f97316,#ef4444)';
+        btn.style.color = '#fff';
+      } else {
+        btn.textContent = '🎯 Dificultad: OFF';
+        btn.style.background = 'linear-gradient(135deg,#6b7280,#4b5563)';
+        btn.style.color = '#fff';
+      }
+    }
+
+    function saveDifficultyConfig() {
+      const multInput = document.getElementById('difficultyMultiplierInput');
+      const chatInput = document.getElementById('chatPointsValueInput');
+
+      if (multInput) {
+        const val = parseFloat(multInput.value);
+        if (!isNaN(val) && val > 0) {
+          difficultyMultiplier = val;
+          localStorage.setItem('difficultyMultiplier', String(val));
+        }
+      }
+      if (chatInput) {
+        const val = parseFloat(chatInput.value);
+        if (!isNaN(val) && val >= 0) {
+          chatPointsPerComment = val;
+          localStorage.setItem('chatPointsPerComment', String(val));
+        }
+      }
+
+      // Actualizar hint
+      const hint = document.getElementById('difficultyHint');
+      if (hint) {
+        if (difficultyMultiplier === 1) {
+          hint.textContent = '1 diamante = 1 punto (normal)';
+        } else if (difficultyMultiplier > 1) {
+          hint.textContent = `1 diamante = ${difficultyMultiplier} puntos (¡más fácil!)`;
+        } else {
+          hint.textContent = `1 diamante = ${difficultyMultiplier} puntos (más difícil)`;
+        }
+      }
+
+      updateDifficultyBtn();
+
+      // Feedback visual en el botón guardar
+      const saveBtn = document.querySelector('[onclick="saveDifficultyConfig()"]');
+      if (saveBtn) {
+        const original = saveBtn.textContent;
+        saveBtn.textContent = '✅ ¡Guardado!';
+        saveBtn.style.background = 'linear-gradient(135deg,#22d3ee,#0ea5e9)';
+        setTimeout(() => {
+          saveBtn.textContent = original;
+          saveBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+        }, 2000);
+      }
+    }
+
+    // Inicializar UI de dificultad al cargar la página
+    function initDifficultyUI() {
+      // Restaurar valores guardados en los inputs
+      const multInput = document.getElementById('difficultyMultiplierInput');
+      const chatInput = document.getElementById('chatPointsValueInput');
+      if (multInput) multInput.value = difficultyMultiplier;
+      if (chatInput) chatInput.value = chatPointsPerComment;
+
+      // Actualizar hint
+      const hint = document.getElementById('difficultyHint');
+      if (hint) {
+        if (difficultyMultiplier === 1) {
+          hint.textContent = '1 diamante = 1 punto (normal)';
+        } else if (difficultyMultiplier > 1) {
+          hint.textContent = `1 diamante = ${difficultyMultiplier} puntos (¡más fácil!)`;
+        } else {
+          hint.textContent = `1 diamante = ${difficultyMultiplier} puntos (más difícil)`;
+        }
+      }
+
+      // Actualizar botón de chat
+      const chatBtn = document.getElementById('chatPointsToggleBtn');
+      if (chatBtn) {
+        chatBtn.textContent = chatPointsEnabled ? '💬 Chat: ON' : '💬 Chat: OFF';
+        chatBtn.style.color = chatPointsEnabled ? '#020617' : '#fff';
+        chatBtn.style.background = chatPointsEnabled
+          ? 'linear-gradient(135deg,#22d3ee,#6366f1)'
+          : 'linear-gradient(135deg,#6b7280,#4b5563)';
+      }
+
+      updateDifficultyBtn();
     }
 
     // ================= GESTIÓN DE PAÍSES =================
@@ -4912,6 +5042,9 @@
 
     // Inicializar configuración de regalos
     renderGiftConfig();
+
+    // Inicializar UI de dificultad con valores guardados (localStorage persistente)
+    initDifficultyUI();
 
     // --- LÓGICA DEL HISTORIAL DE CONEXIONES ---
     function showHistoryModal() {

@@ -9,7 +9,15 @@ const https = require('https');
 const http = require('http');
 const crypto = require('crypto');
 
+// ─── MÓDULOS ANTI-BLOQUEO NIVEL 4 ────────────────────────────────────────────
+const PrivateSigner = require('./PrivateSigner');   // Chrome Headless (roba X-Bogus)
+const ProxyManager  = require('./ProxyManager');    // Proxies rotativos gratuitos
+
 require('dotenv').config();
+
+// Singletons de nivel 4 (lazy-load — se crean solo si los niveles 1/2/3 fallan)
+let privateSigner = null;
+let proxyManager  = null;
 
 // ─── CONFIGURACIÓN ────────────────────────────────────────────────────────────
 const app = express();
@@ -283,7 +291,7 @@ async function saveGiftToDatabase(giftData) {
         receivedGifts.set(giftData.name, memEntry);
 
         // Notificar a todos los clientes que hay un nuevo regalo en la biblioteca
-        const BACKEND_BASE = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+        const BACKEND_BASE = process.env.VPS_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
         const imageForFrontend = localImage ? `${BACKEND_BASE}${localImage}` : giftData.imageUrl || '';
 
         io.emit('library:newGift', {
@@ -444,6 +452,7 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
 
         // INTENTO 3: EULER STREAM (Si falló Nativo y falló/no-había SessionID)
         if (!sessionIdSuccess) {
+            let eulerSuccess = false;
             if (process.env.EULER_API_KEY) {
                 console.log(`[TikTok] 🟡 Reintentando con API de Conexión Segura (Euler)...`);
                 try {
@@ -453,16 +462,55 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
                     roomState = result3.roomState;
                     logConnection(username, 'euler_bypass', 'success');
                     console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Euler API`);
+                    eulerSuccess = true;
                 } catch (err3) {
                     logConnection(username, 'euler_bypass', 'failed', err3.message);
-                    console.error(`[TikTok] ❌ Fallo Bypass Euler (@${username}): ${err3.message}`);
-                    handleConnectionError(err3.message);
+                    console.error(`[TikTok] ⚠️ Fallo Bypass Euler (@${username}): ${err3.message}`);
+                }
+            }
+
+            // INTENTO 4: CHROME HEADLESS (PrivateSigner) + PROXIES ROTATIVOS
+            if (!eulerSuccess) {
+                console.log(`[TikTok] 🕵️ [NIVEL 4] Activando Chrome Headless para interceptar firmas de @${username}...`);
+                broadcastToUserRoom(username, 'tiktok:status', { connecting: true, username, message: `🕵️ Activando modo avanzado (Nivel 4) para @${username}...` });
+                try {
+                    // Inicializar PrivateSigner (lazy-load, singleton)
+                    if (!privateSigner) privateSigner = new PrivateSigner();
+                    const signatures = await privateSigner.stealSignatures(username);
+
+                    let level4Cfg = { ...BASE_CONFIG, connectWithUniqueId: false };
+                    if (signatures && signatures.headers) {
+                        level4Cfg.clientOptions = { headers: signatures.headers };
+                        console.log(`[TikTok] ✅ Firmas interceptadas correctamente, intentando conexión...`);
+                    }
+
+                    // Combinar con proxy rotativo si está disponible
+                    try {
+                        if (!proxyManager) {
+                            proxyManager = new ProxyManager();
+                            await proxyManager.fetchFreeProxies();
+                        }
+                        const proxyAgent = proxyManager.getNextProxyAgent();
+                        if (proxyAgent) {
+                            level4Cfg.clientOptions = level4Cfg.clientOptions || {};
+                            level4Cfg.clientOptions.agent = proxyAgent;
+                            console.log(`[TikTok] 🌍 Proxy rotativo inyectado como capa adicional`);
+                        }
+                    } catch (proxyErr) {
+                        console.warn(`[TikTok] ⚠️ Proxy no disponible, continuando sin proxy: ${proxyErr.message}`);
+                    }
+
+                    const result4 = await tryConnect(level4Cfg);
+                    connector = result4.connector;
+                    roomState = result4.roomState;
+                    logConnection(username, 'headless_bypass', 'success');
+                    console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Chrome Headless (Nivel 4)`);
+                } catch (err4) {
+                    logConnection(username, 'headless_bypass', 'failed', err4.message);
+                    console.error(`[TikTok] ❌ Fallo Nivel 4 Chrome Headless (@${username}): ${err4.message}`);
+                    handleConnectionError(err4.message || err1.message);
                     return;
                 }
-            } else {
-                // No hay Euler, y los demás fallaron
-                handleConnectionError(err1.message);
-                return;
             }
         }
     }
@@ -707,7 +755,7 @@ io.on('connection', (socket) => {
  * Persiste entre reinicios de Render leyendo el archivo JSON directamente.
  */
 app.get('/api/gifts', (req, res) => {
-    const BACKEND_BASE = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+    const BACKEND_BASE = process.env.VPS_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
     // Leer la BD del archivo (fuente de verdad persistente)
     let dbGifts = {};
@@ -730,7 +778,7 @@ app.get('/api/gifts', (req, res) => {
         .map(g => {
             let image = '';
             if (g.localImage) {
-                image = g.localImage.startsWith('http') ? g.localImage : `${BACKEND_BASE}${g.localImage}`;
+                image = g.localImage;
             } else if (g.imageUrl) {
                 image = g.imageUrl;
             }

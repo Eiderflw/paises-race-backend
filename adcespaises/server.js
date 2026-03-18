@@ -842,7 +842,7 @@ app.get('/api/gifts', (req, res) => {
         .map(g => {
             let image = '';
             if (g.localImage) {
-                image = g.localImage;
+                image = g.localImage.startsWith('http') ? g.localImage : `${BACKEND_BASE}${g.localImage}`;
             } else if (g.imageUrl) {
                 image = g.imageUrl;
             }

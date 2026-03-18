@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --primary: #3b82f6;
+            --danger: #ef4444;
+            --success: #10b981;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Login Screen */
+        #login-screen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #1e293b, #0f172a);
+        }
+
+        .login-box {
+            background: rgba(30, 41, 59, 0.9);
+            padding: 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .login-box h2 {
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 1.8rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.2rem;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 0.8rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 0.5rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--primary);
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s, transform 0.1s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .login-btn {
+            width: 100%;
+            justify-content: center;
+            font-size: 1.1rem;
+            margin-top: 1rem;
+        }
+
+        /* Dashboard Screen */
+        #dashboard-screen {
+            display: none;
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .header {
+            background: var(--panel-bg);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .header-title i {
+            color: var(--primary);
+        }
+
+        .nav-tabs {
+            background: var(--panel-bg);
+            padding: 0 2rem;
+            display: flex;
+            gap: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-tab {
+            padding: 1rem 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-tab:hover {
+            color: var(--text-main);
+        }
+
+        .nav-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .main-content {
+            padding: 2rem;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cards and Tables */
+        .card {
+            background: var(--panel-bg);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 1.5rem;
+            border-radius: 0.8rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--primary);
+        }
+
+        .stat-icon.green {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .stat-info h3 {
+            margin: 0;
+            font-size: 1.8rem;
+        }
+
+        .stat-info p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge.success { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge.danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge.info { background: rgba(59, 130, 246, 0.15); color: var(--primary); border: 1px solid rgba(59, 130, 246, 0.3); }
+
+        /* Blacklist Toolbar */
+        .toolbar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-container {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        .search-container input {
+            width: 100%;
+            padding: 0.8rem 1rem 0.8rem 2.8rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 0.5rem;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .search-container i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- PANTALLA DE LOGIN -->
+    <div id="login-screen">
+        <div class="login-box">
+            <h2><i class="fa-solid fa-shield-halved"></i> Panel Admin</h2>
+            <p style="color: var(--text-muted); margin-bottom: 2rem;">Ingresa tus credenciales para continuar</p>
+            <div class="input-group">
+                <label for="username">Usuario</label>
+                <input type="text" id="username" placeholder="Nombre de usuario" autocomplete="off">
+            </div>
+            <div class="input-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" placeholder="Contraseña">
+            </div>
+            <button class="btn login-btn" onclick="login()">Ingresar <i class="fa-solid fa-arrow-right"></i></button>
+        </div>
+    </div>
+
+    <!-- PANTALLA PRINCIPAL -->
+    <div id="dashboard-screen">
+        <div class="header">
+            <h1 class="header-title"><i class="fa-solid fa-gamepad"></i> Paises Race - Panel de Control</h1>
+            <button class="btn btn-danger" onclick="logout()"><i class="fa-solid fa-power-off"></i> Cerrar Sesión</button>
+        </div>
+
+        <div class="nav-tabs">
+            <div class="nav-tab active" onclick="switchTab('monitor')"><i class="fa-solid fa-desktop"></i> Monitor en Vivo</div>
+            <div class="nav-tab" onclick="switchTab('history')"><i class="fa-solid fa-clock-rotate-left"></i> Historial Inborrable</div>
+            <div class="nav-tab" onclick="switchTab('blacklist')"><i class="fa-solid fa-ban"></i> Blacklist (Bloqueos)</div>
+        </div>
+
+        <div class="main-content">
+            
+            <!-- ====== TAB: MONITOR ====== -->
+            <div id="tab-monitor" class="tab-pane active">
+                <div class="card">
+                    <h2><i class="fa-solid fa-satellite-dish" style="color:var(--primary)"></i> Transmisiones Activas</h2>
+                    <p style="color:var(--text-muted); margin-bottom: 1.5rem;">Supervisa en tiempo real qué creadores están usando el juego ahora mismo.</p>
+                    
+                    <div style="overflow-x: auto;">
+                        <table id="monitor-table">
+                            <thead>
+                                <tr>
+                                    <th>Creador</th>
+                                    <th>Estado / Tipo</th>
+                                    <th>Espectadores</th>
+                                    <th>Diamantes Recibidos</th>
+                                    <th>Tiempo Jugando</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Contenido inyectado por JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====== TAB: HISTORY ====== -->
+            <div id="tab-history" class="tab-pane">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fa-solid fa-plug"></i></div>
+                        <div class="stat-info">
+                            <h3 id="stat-total-connections">0</h3>
+                            <p>Conexiones Totales Históricas</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green"><i class="fa-regular fa-gem"></i></div>
+                        <div class="stat-info">
+                            <h3 id="stat-total-diamonds">0</h3>
+                            <p>Diamantes Acumulados</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2><i class="fa-solid fa-book" style="color:var(--primary)"></i> Registro Histórico</h2>
+                    <p style="color:var(--text-muted); margin-bottom: 1.5rem;">Este historial es persistente y guarda todas las conexiones al juego.</p>
+                    
+                    <div style="overflow-x: auto;">
+                        <table id="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha y Hora</th>
+                                    <th>Creador</th>
+                                    <th>Tipo de Conexión</th>
+                                    <th>Pico Espectadores</th>
+                                    <th>Gancia (Diamantes)</th>
+                                    <th>Duración Total</th>
+                                    <th>Resultado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Contenido inyectado por JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====== TAB: BLACKLIST ====== -->
+            <div id="tab-blacklist" class="tab-pane">
+                <div class="card">
+                    <h2><i class="fa-solid fa-user-shield" style="color:var(--primary)"></i> Gestión de Creadores Bloqueados</h2>
+                    <p style="color:var(--text-muted); margin-bottom: 1.5rem;">Los creadores agregados aquí no tendrán derecho de usar el juego y verán un mensaje de alerta solicitándoles registrarse con la agencia Samyflw.</p>
+                    
+                    <div class="toolbar">
+                        <div class="search-container">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="blacklist-search" placeholder="Buscar creador en la lista..." onkeyup="filterBlacklist()">
+                        </div>
+                        <input type="text" id="blacklist-add-input" placeholder="@usuario_tiktok" style="padding: 0.8rem; border-radius: 0.5rem; background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); color: white;">
+                        <button class="btn btn-danger" onclick="addToBlacklist()"><i class="fa-solid fa-ban"></i> Bloquear Creador</button>
+                    </div>
+
+                    <div style="overflow-x: auto;">
+                        <table id="blacklist-table">
+                            <thead>
+                                <tr>
+                                    <th>Usuario de TikTok</th>
+                                    <th style="text-align: right;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Contenido inyectado por JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===== SCRIPTS ===== -->
+    <script>
+        const API_BASE = window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin;
+        let authToken = localStorage.getItem('adminToken');
+        let refreshInterval = null;
+        let cachedBlacklist = [];
+
+        // Inicializar
+        if (authToken) {
+            showDashboard();
+        }
+
+        // --- Navegación ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            
+            event.currentTarget.classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+
+            if (tabId === 'blacklist') loadBlacklist();
+        }
+
+        // --- Utilidades ---
+        function formatTime(ms) {
+            if (!ms) return '0s';
+            let seconds = Math.floor(ms / 1000);
+            let minutes = Math.floor(seconds / 60);
+            let hours = Math.floor(minutes / 60);
+            if (hours > 0) return `${hours}h ${minutes % 60}m`;
+            if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+            return `${seconds}s`;
+        }
+
+        function formatDate(isoString) {
+            return new Date(isoString).toLocaleString('es-ES', { 
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute:'2-digit' 
+            });
+        }
+
+        // --- Autenticación ---
+        async function login() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+
+            if (!user || !pass) {
+                Swal.fire('Error', 'Debes ingresar usuario y contraseña', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    authToken = data.token;
+                    localStorage.setItem('adminToken', authToken);
+                    Swal.fire({
+                        title: '¡Acceso Concedido!',
+                        icon: 'success',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 2000
+                    });
+                    setTimeout(showDashboard, 1000);
+                } else {
+                    Swal.fire('Denegado', data.message || 'Credenciales incorrectas', 'error');
+                }
+            } catch (err) {
+                Swal.fire('Error de red', err.message, 'error');
+            }
+        }
+
+        function logout() {
+            authToken = null;
+            localStorage.removeItem('adminToken');
+            document.getElementById('dashboard-screen').style.display = 'none';
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            if (refreshInterval) clearInterval(refreshInterval);
+        }
+
+        function showDashboard() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('dashboard-screen').style.display = 'flex';
+            fetchData();
+            if (refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(fetchData, 5000); // Actualizar monitor cada 5s
+        }
+
+        async function fetchWithAuth(url, options = {}) {
+            if (!options.headers) options.headers = {};
+            options.headers['Authorization'] = `Bearer ${authToken}`;
+            
+            const res = await fetch(API_BASE + url, options);
+            if (res.status === 401 || res.status === 403) {
+                logout();
+                throw new Error("Sesión expirada o no autorizada");
+            }
+            return res.json();
+        }
+
+        // --- Obtener Datos: Monitor e Historial ---
+        async function fetchData() {
+            try {
+                const data = await fetchWithAuth('/api/admin/monitor');
+                if (data.success) {
+                    renderMonitor(data.onlineUsers);
+                    renderHistory(data.history);
+                }
+            } catch (err) {
+                console.error("Error obteniendo datos:", err);
+            }
+        }
+
+        function renderMonitor(users) {
+            const tbody = document.querySelector('#monitor-table tbody');
+            if (!users || users.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-tower-broadcast"></i><br>Nadie está usando el juego en este momento.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            users.forEach(u => {
+                html += `
+                <tr>
+                    <td><strong>@${u.username}</strong></td>
+                    <td><span class="badge success">En Vivo - Conectado</span></td>
+                    <td><i class="fa-solid fa-users" style="color:var(--text-muted)"></i> ${u.viewers.toLocaleString()}</td>
+                    <td><i class="fa-regular fa-gem" style="color:#d946ef"></i> ${u.diamonds.toLocaleString()}</td>
+                    <td>${formatTime(u.playTimeMs)}</td>
+                    <td>
+                         <button class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="blockActiveUser('${u.username}')">Bloquear Ahora</button>
+                    </td>
+                </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function renderHistory(history) {
+            const tbody = document.querySelector('#history-table tbody');
+            
+            // Actualizar tarjetas de stats
+            document.getElementById('stat-total-connections').textContent = history.length.toLocaleString();
+            let totalD = history.reduce((sum, h) => sum + (h.diamonds || 0), 0);
+            document.getElementById('stat-total-diamonds').textContent = totalD.toLocaleString();
+
+            if (!history || history.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No hay registros históricos aún.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            history.forEach(h => {
+                const isSuccess = h.status === 'success';
+                const statusBadge = isSuccess ? 
+                    `<span class="badge success">✅ Éxito</span>` : 
+                    `<span class="badge danger" title="${h.errorMsg}">❌ Fallido</span>`;
+                
+                const typeBadge = h.type.includes('bypass') ? 
+                    `<span class="badge info">API Bypass</span>` : 
+                    `<span class="badge info">Nativo</span>`;
+
+                html += `
+                <tr>
+                    <td style="color:var(--text-muted); font-size:0.9rem;">${formatDate(h.timestamp)}</td>
+                    <td><strong>@${h.username}</strong></td>
+                    <td>${typeBadge}</td>
+                    <td><i class="fa-solid fa-users"></i> ${h.viewers || 0}</td>
+                    <td><i class="fa-regular fa-gem"></i> ${h.diamonds || 0}</td>
+                    <td>${formatTime(h.durationMs)}</td>
+                    <td>${statusBadge}</td>
+                </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // --- Blacklist ---
+        async function loadBlacklist() {
+            try {
+                const data = await fetchWithAuth('/api/admin/blacklist');
+                if (data.success) {
+                    cachedBlacklist = data.blacklist;
+                    renderBlacklist(cachedBlacklist);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderBlacklist(list) {
+            const tbody = document.querySelector('#blacklist-table tbody');
+            if (!list || list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="2" class="empty-state"><i class="fa-solid fa-shield-halved"></i><br>La lista negra está vacía. Nadie está bloqueado.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            list.forEach(username => {
+                html += `
+                <tr>
+                    <td style="font-size: 1.1rem; font-weight: 500;">@${username} <span class="badge danger" style="margin-left:10px;">Bloqueado</span></td>
+                    <td style="text-align: right;">
+                        <button class="btn" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);" onclick="removeFromBlacklist('${username}')">
+                            <i class="fa-solid fa-unlock"></i> Desbloquear
+                        </button>
+                    </td>
+                </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function filterBlacklist() {
+            const term = document.getElementById('blacklist-search').value.toLowerCase();
+            const filtered = cachedBlacklist.filter(u => u.includes(term));
+            renderBlacklist(filtered);
+        }
+
+        async function addToBlacklist() {
+            const input = document.getElementById('blacklist-add-input');
+            let username = input.value.trim();
+            if (!username) return;
+            username = username.replace('@', '').toLowerCase();
+
+            try {
+                const res = await fetchWithAuth('/api/admin/blacklist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                
+                if (res.success) {
+                    input.value = '';
+                    cachedBlacklist = res.blacklist;
+                    renderBlacklist(cachedBlacklist);
+                    Swal.fire('¡Bloqueado!', `@${username} fue añadido a la lista negra y desconectado si estaba en vivo.`, 'success');
+                    fetchData(); // Refrescar monitor por si lo expulsó
+                }
+            } catch (err) {
+                Swal.fire('Error', err.message, 'error');
+            }
+        }
+
+        async function removeFromBlacklist(username) {
+            const confirm = await Swal.fire({
+                title: '¿Estás seguro?',
+                text: `¿Deseas permitir que @${username} vuelva a usar el juego?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#334155',
+                confirmButtonText: 'Sí, desbloquear',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (confirm.isConfirmed) {
+                try {
+                    const res = await fetchWithAuth(`/api/admin/blacklist/${username}`, { method: 'DELETE' });
+                    if (res.success) {
+                        cachedBlacklist = res.blacklist;
+                        renderBlacklist(cachedBlacklist);
+                        document.getElementById('blacklist-search').value = '';
+                        Swal.fire('Desbloqueado', `@${username} ha sido removido de la lista negra.`, 'success');
+                    }
+                } catch (err) {
+                    Swal.fire('Error', err.message, 'error');
+                }
+            }
+        }
+
+        function blockActiveUser(username) {
+            document.getElementById('blacklist-add-input').value = username;
+            switchTab('blacklist');
+            setTimeout(addToBlacklist, 300);
+        }
+
+    </script>
+</body>
+</html>

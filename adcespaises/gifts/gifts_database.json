@@ -43,7 +43,7 @@
     "name": "Glow Stick",
     "id": 6788,
     "diamondCount": 1,
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/maliva/webcast-va/8e1a5d66370c5586545e358e37c10d25~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/8e1a5d66370c5586545e358e37c10d25~tplv-obj.png",
     "localImage": "/gifts/images/glow_stick.png",
     "firstReceived": "2026-01-30T03:03:24.173Z"
   },
@@ -59,7 +59,7 @@
     "name": "TikTok",
     "id": 5269,
     "diamondCount": 1,
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.png",
     "localImage": "/gifts/images/tiktok.png",
     "firstReceived": "2026-01-30T03:03:26.676Z"
   },
@@ -123,7 +123,7 @@
     "name": "You're awesome",
     "id": 15232,
     "diamondCount": 1,
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/e9cafce8279220ed26016a71076d6a8a.png~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/e9cafce8279220ed26016a71076d6a8a.png~tplv-obj.png",
     "localImage": "/gifts/images/you_re_awesome.png",
     "firstReceived": "2026-01-30T03:11:05.764Z"
   },
@@ -243,7 +243,7 @@
     "name": "Ice Cream Cone",
     "id": 5827,
     "diamondCount": 1,
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/maliva/webcast-va/968820bc85e274713c795a6aef3f7c67~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/968820bc85e274713c795a6aef3f7c67~tplv-obj.png",
     "localImage": "/gifts/images/ice_cream_cone.png",
     "firstReceived": "2026-01-31T05:13:09.572Z"
   },
@@ -259,7 +259,7 @@
     "name": "Cake Slice",
     "id": 6784,
     "diamondCount": 1,
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/maliva/webcast-va/f681afb4be36d8a321eac741d387f1e2~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/f681afb4be36d8a321eac741d387f1e2~tplv-obj.png",
     "localImage": "/gifts/images/cake_slice.png",
     "firstReceived": "2026-02-02T17:34:31.454Z"
   },
@@ -342,26 +342,31 @@
   },
   "Wink wink": {
     "name": "Wink wink",
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/4a68411b3e92fc2bf68d458d5f906b74.png~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/4a68411b3e92fc2bf68d458d5f906b74.png~tplv-obj.png",
     "diamondCount": 1,
-    "localImage": "/gifts/images/wink_wink.png"
+    "localImage": "/gifts/images/wink_wink.png",
+    "id": 19446
   },
   "Freestyle": {
     "name": "Freestyle",
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/1f5ca5cfb4b98c2761fb85987f47c641.png~tplv-obj.png",
-    "diamondCount": 1
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/1f5ca5cfb4b98c2761fb85987f47c641.png~tplv-obj.png",
+    "diamondCount": 1,
+    "id": 19441,
+    "localImage": "/gifts/images/freestyle.png"
   },
   "Pop": {
     "name": "Pop",
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/0b4f61e8ab637f11449300d03929ef87.png~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/0b4f61e8ab637f11449300d03929ef87.png~tplv-obj.png",
     "diamondCount": 1,
-    "localImage": "/gifts/images/pop.png"
+    "localImage": "/gifts/images/pop.png",
+    "id": 19438
   },
   "Oldies": {
     "name": "Oldies",
-    "imageUrl": "https://p19-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/77f6ab69b0b03bda98a0a3d2bfdeb46f.png~tplv-obj.png",
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/77f6ab69b0b03bda98a0a3d2bfdeb46f.png~tplv-obj.png",
     "diamondCount": 1,
-    "localImage": "/gifts/images/oldies.png"
+    "localImage": "/gifts/images/oldies.png",
+    "id": 19439
   },
   "Fluffy Heart": {
     "name": "Fluffy Heart",
@@ -479,5 +484,69 @@
     "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/d4aad726e2759e54a924fbcd628ea143.png~tplv-obj.png",
     "localImage": null,
     "firstReceived": "2026-03-11T06:51:18.394Z"
+  },
+  "Suprised Fish": {
+    "name": "Suprised Fish",
+    "id": 15564,
+    "diamondCount": 1,
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/3eac97ff3c4603f6c5500cd0ca1aa9e1.png~tplv-obj.png",
+    "localImage": "/gifts/images/suprised_fish.png",
+    "firstReceived": "2026-03-11T19:02:35.982Z"
+  },
+  "Cat Paws": {
+    "name": "Cat Paws",
+    "id": 5745,
+    "diamondCount": 1,
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/2721ad129e67ef94c22889552f621fd5~tplv-obj.png",
+    "localImage": "/gifts/images/cat_paws.png",
+    "firstReceived": "2026-03-11T19:02:36.416Z"
+  },
+  "Little Sakura": {
+    "name": "Little Sakura",
+    "id": 14466,
+    "diamondCount": 1,
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/2bcadee5cdcfd15fab0bad5ff83261a0.png~tplv-obj.png",
+    "localImage": "/gifts/images/little_sakura.png",
+    "firstReceived": "2026-03-11T19:02:39.871Z"
+  },
+  "Baseball": {
+    "name": "Baseball",
+    "id": 7897,
+    "diamondCount": 1,
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/4830537948760b3942e0a59a8f2add4f~tplv-obj.png",
+    "localImage": "/gifts/images/baseball.png",
+    "firstReceived": "2026-03-11T19:02:40.513Z"
+  },
+  "Nice to meet U": {
+    "name": "Nice to meet U",
+    "id": 12202,
+    "diamondCount": 1,
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/31e8baf5297c6078043c7fb77419b8dd.png~tplv-obj.png",
+    "localImage": "/gifts/images/nice_to_meet_u.png",
+    "firstReceived": "2026-03-11T19:02:43.081Z"
+  },
+  "Love Letter": {
+    "name": "Love Letter",
+    "id": 14113,
+    "diamondCount": 1,
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/a220bb2d2b60272a426824d79a1e4071.png~tplv-obj.png",
+    "localImage": "/gifts/images/love_letter.png",
+    "firstReceived": "2026-03-11T19:02:44.868Z"
+  },
+  "Plum Blossom": {
+    "name": "Plum Blossom",
+    "id": 13875,
+    "diamondCount": 1,
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/4016c0856bc709b095ef1a17c325df88.png~tplv-obj.png",
+    "localImage": "/gifts/images/plum_blossom.png",
+    "firstReceived": "2026-03-11T19:02:47.433Z"
+  },
+  "Support": {
+    "name": "Support",
+    "id": 12238,
+    "diamondCount": 5,
+    "imageUrl": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/c49bf28b1d8eec4662b39fee9bc89b58.png~tplv-obj.png",
+    "localImage": "/gifts/images/support.png",
+    "firstReceived": "2026-03-11T19:02:53.331Z"
   }
 }

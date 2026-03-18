@@ -1,0 +1,310 @@
+[
+  {
+    "timestamp": "2026-03-11T19:18:43.735Z",
+    "username": "reyjackso",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": "The requested user isn't online :("
+  },
+  {
+    "timestamp": "2026-03-11T19:18:42.642Z",
+    "username": "reyjackso",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": "The requested user isn't online :("
+  },
+  {
+    "timestamp": "2026-03-11T19:18:32.822Z",
+    "username": "reyjackso",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": "The requested user isn't online :("
+  },
+  {
+    "timestamp": "2026-03-11T19:18:31.778Z",
+    "username": "reyjackso",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": "The requested user isn't online :("
+  },
+  {
+    "timestamp": "2026-03-11T18:53:52.133Z",
+    "username": "reyjackso",
+    "type": "native",
+    "status": "success",
+    "errorMsg": null
+  },
+  {
+    "timestamp": "2026-03-11T18:53:17.381Z",
+    "username": "tiktok_random_123_456",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:53:16.884Z",
+    "username": "reyjackso",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": "[Rate Limited] (rate_limit_account_day) Too many connections started, try again later. \n\t|                                                                                                |\n\t+------------------------------------- SIGN SERVER MESSAGE --------------------------------------+\n\t| You have reached the rate limit for your plan, upgrade at https://www.eulerstream.com/pricing. |\n\t+------------------------------------------------------------------------------------------------+\n"
+  },
+  {
+    "timestamp": "2026-03-11T18:53:16.122Z",
+    "username": "tiktok_random_123_456",
+    "type": "sessionid_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:53:15.773Z",
+    "username": "reyjackso",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": "[Rate Limited] (rate_limit_account_day) Too many connections started, try again later. \n\t|                                                                                                |\n\t+------------------------------------- SIGN SERVER MESSAGE --------------------------------------+\n\t| You have reached the rate limit for your plan, upgrade at https://www.eulerstream.com/pricing. |\n\t+------------------------------------------------------------------------------------------------+\n"
+  },
+  {
+    "timestamp": "2026-03-11T18:53:13.991Z",
+    "username": "tiktok_random_123_456",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:53:10.405Z",
+    "username": "reyjackso",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": "[Rate Limited] (rate_limit_account_day) Too many connections started, try again later. \n\t|                                                                                                |\n\t+------------------------------------- SIGN SERVER MESSAGE --------------------------------------+\n\t| You have reached the rate limit for your plan, upgrade at https://www.eulerstream.com/pricing. |\n\t+------------------------------------------------------------------------------------------------+\n"
+  },
+  {
+    "timestamp": "2026-03-11T18:53:09.040Z",
+    "username": "reyjackso",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": "[Rate Limited] (rate_limit_account_day) Too many connections started, try again later. \n\t|                                                                                                |\n\t+------------------------------------- SIGN SERVER MESSAGE --------------------------------------+\n\t| You have reached the rate limit for your plan, upgrade at https://www.eulerstream.com/pricing. |\n\t+------------------------------------------------------------------------------------------------+\n"
+  },
+  {
+    "timestamp": "2026-03-11T18:53:05.788Z",
+    "username": "reyjackso",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": "[Rate Limited] (rate_limit_account_day) Too many connections started, try again later. \n\t|                                                                                                |\n\t+------------------------------------- SIGN SERVER MESSAGE --------------------------------------+\n\t| You have reached the rate limit for your plan, upgrade at https://www.eulerstream.com/pricing. |\n\t+------------------------------------------------------------------------------------------------+\n"
+  },
+  {
+    "timestamp": "2026-03-11T18:53:04.663Z",
+    "username": "reyjackso",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": "[Rate Limited] (rate_limit_account_day) Too many connections started, try again later. \n\t|                                                                                                |\n\t+------------------------------------- SIGN SERVER MESSAGE --------------------------------------+\n\t| You have reached the rate limit for your plan, upgrade at https://www.eulerstream.com/pricing. |\n\t+------------------------------------------------------------------------------------------------+\n"
+  },
+  {
+    "timestamp": "2026-03-11T18:52:42.828Z",
+    "username": "tiktok_random_123_456",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:52:41.622Z",
+    "username": "tiktok_random_123_456",
+    "type": "sessionid_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:52:40.225Z",
+    "username": "tiktok_random_123_456",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:52:08.476Z",
+    "username": "tiktok_random_123_456",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:52:07.206Z",
+    "username": "tiktok_random_123_456",
+    "type": "sessionid_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:52:04.533Z",
+    "username": "tiktok_random_123_456",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:51:32.067Z",
+    "username": "tiktok_random_123_456",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:51:30.831Z",
+    "username": "tiktok_random_123_456",
+    "type": "sessionid_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:51:28.555Z",
+    "username": "tiktok_random_123_456",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:50:56.811Z",
+    "username": "tiktok_random_123_456",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:50:55.548Z",
+    "username": "tiktok_random_123_456",
+    "type": "sessionid_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:50:52.691Z",
+    "username": "tiktok_random_123_456",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:50:20.614Z",
+    "username": "tiktok_random_123_456",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:50:19.647Z",
+    "username": "tiktok_random_123_456",
+    "type": "sessionid_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:50:18.656Z",
+    "username": "tiktok_random_123_456",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:47.220Z",
+    "username": "tiktok_random_123_456",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:46.348Z",
+    "username": "tiktok_random_123_456",
+    "type": "sessionid_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:44.925Z",
+    "username": "tiktok_random_123_456",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:27.768Z",
+    "username": "tiktok_random_123_456",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:26.113Z",
+    "username": "tiktok_random_123_456",
+    "type": "sessionid_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:24.011Z",
+    "username": "tiktok_random_123_456",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:14.754Z",
+    "username": "tiktok_random_123_456",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:13.513Z",
+    "username": "tiktok_random_123_456",
+    "type": "sessionid_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:12.314Z",
+    "username": "tiktok_random_123_456",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:06.959Z",
+    "username": "tiktok_random_123_456",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:05.463Z",
+    "username": "tiktok_random_123_456",
+    "type": "sessionid_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:03.924Z",
+    "username": "tiktok_random_123_456",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:49:00.688Z",
+    "username": "tiktok_random_123_456",
+    "type": "euler_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:48:59.472Z",
+    "username": "tiktok_random_123_456",
+    "type": "sessionid_bypass",
+    "status": "failed",
+    "errorMsg": ""
+  },
+  {
+    "timestamp": "2026-03-11T18:48:57.713Z",
+    "username": "tiktok_random_123_456",
+    "type": "native",
+    "status": "failed",
+    "errorMsg": ""
+  }
+]

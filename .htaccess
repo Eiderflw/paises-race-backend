@@ -1,0 +1,11 @@
+RewriteEngine On
+
+# Permitir archivos físicos directamente (index.html, style.css, assets, etc)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Todo lo demás (API y Socket.IO) debe estar manejado por el frontend en JS,
+# conectado a http://157.173.116.140/pais
+# Por lo tanto las RewriteRules no son necesarias aquí para proxies inversos
+# a menos que el servidor permita mod_proxy (que Hostinger compratido normalmente no permite).

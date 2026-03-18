@@ -9,15 +9,7 @@ const https = require('https');
 const http = require('http');
 const crypto = require('crypto');
 
-// ─── MÓDULOS ANTI-BLOQUEO NIVEL 4 ────────────────────────────────────────────
-const PrivateSigner = require('./PrivateSigner');   // Chrome Headless (roba X-Bogus)
-const ProxyManager  = require('./ProxyManager');    // Proxies rotativos gratuitos
-
 require('dotenv').config();
-
-// Singletons de nivel 4 (lazy-load — se crean solo si los niveles 1/2/3 fallan)
-let privateSigner = null;
-let proxyManager  = null;
 
 // ─── CONFIGURACIÓN ────────────────────────────────────────────────────────────
 const app = express();
@@ -77,7 +69,7 @@ try {
 
 function logConnection(username, type, status, errorMsg = null) {
     const timestamp = new Date().toISOString();
-    const logEntry = { timestamp, username, type, status, errorMsg, viewers: 0, diamonds: 0, durationMs: 0 };
+    const logEntry = { timestamp, username, type, status, errorMsg };
 
     connectionHistory.unshift(logEntry); // Agregar al inicio
     if (connectionHistory.length > MAX_HISTORY) {
@@ -88,40 +80,6 @@ function logConnection(username, type, status, errorMsg = null) {
     fs.writeFile(HISTORY_FILE, JSON.stringify(connectionHistory, null, 2), (err) => {
         if (err) console.error('[HISTORY] Error guardando historial:', err.message);
     });
-}
-
-function updateHistoryStats(username, viewers, diamondsGain) {
-    const log = connectionHistory.find(h => h.username === username);
-    if (log) {
-        if (viewers > (log.viewers || 0)) log.viewers = viewers;
-        log.diamonds = (log.diamonds || 0) + diamondsGain;
-        const start = new Date(log.timestamp).getTime();
-        log.durationMs = Date.now() - start;
-        fs.writeFile(HISTORY_FILE, JSON.stringify(connectionHistory, null, 2), () => {});
-    }
-}
-
-// ─── BLACKLIST (PERSISTENTE EN DISCO) ─────────────────────────────────────────
-const BLACKLIST_FILE = path.join(__dirname, 'data', 'blacklist.json');
-let blockedCreators = [];
-try {
-    if (fs.existsSync(BLACKLIST_FILE)) {
-        blockedCreators = JSON.parse(fs.readFileSync(BLACKLIST_FILE, 'utf8'));
-        console.log(`[BLACKLIST] ✅ ${blockedCreators.length} creadores bloqueados cargados`);
-    } else {
-        fs.writeFileSync(BLACKLIST_FILE, JSON.stringify([], null, 2));
-    }
-} catch (e) {
-    console.error('[BLACKLIST] Error cargando blacklist:', e.message);
-    blockedCreators = [];
-}
-
-function saveBlacklist() {
-    try {
-        fs.writeFileSync(BLACKLIST_FILE, JSON.stringify(blockedCreators, null, 2));
-    } catch (e) {
-        console.error('[BLACKLIST] Error guardando blacklist:', e.message);
-    }
 }
 
 // Endpoint para el panel de administración
@@ -325,7 +283,7 @@ async function saveGiftToDatabase(giftData) {
         receivedGifts.set(giftData.name, memEntry);
 
         // Notificar a todos los clientes que hay un nuevo regalo en la biblioteca
-        const BACKEND_BASE = process.env.VPS_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+        const BACKEND_BASE = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
         const imageForFrontend = localImage ? `${BACKEND_BASE}${localImage}` : giftData.imageUrl || '';
 
         io.emit('library:newGift', {
@@ -406,9 +364,7 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
             reconnectAttempts: 0,
             maxReconnectAttempts: 10,
             stopping: false,
-            viewers: 0,
-            diamondsReceived: 0,
-            connectedAt: Date.now()
+            viewers: 0
         };
         activeSessions.set(username, session);
     } else if (manual) {
@@ -488,7 +444,6 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
 
         // INTENTO 3: EULER STREAM (Si falló Nativo y falló/no-había SessionID)
         if (!sessionIdSuccess) {
-            let eulerSuccess = false;
             if (process.env.EULER_API_KEY) {
                 console.log(`[TikTok] 🟡 Reintentando con API de Conexión Segura (Euler)...`);
                 try {
@@ -498,55 +453,16 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
                     roomState = result3.roomState;
                     logConnection(username, 'euler_bypass', 'success');
                     console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Euler API`);
-                    eulerSuccess = true;
                 } catch (err3) {
                     logConnection(username, 'euler_bypass', 'failed', err3.message);
-                    console.error(`[TikTok] ⚠️ Fallo Bypass Euler (@${username}): ${err3.message}`);
-                }
-            }
-
-            // INTENTO 4: CHROME HEADLESS (PrivateSigner) + PROXIES ROTATIVOS
-            if (!eulerSuccess) {
-                console.log(`[TikTok] 🕵️ [NIVEL 4] Activando Chrome Headless para interceptar firmas de @${username}...`);
-                broadcastToUserRoom(username, 'tiktok:status', { connecting: true, username, message: `🕵️ Activando modo avanzado (Nivel 4) para @${username}...` });
-                try {
-                    // Inicializar PrivateSigner (lazy-load, singleton)
-                    if (!privateSigner) privateSigner = new PrivateSigner();
-                    const signatures = await privateSigner.stealSignatures(username);
-
-                    let level4Cfg = { ...BASE_CONFIG, connectWithUniqueId: false };
-                    if (signatures && signatures.headers) {
-                        level4Cfg.clientOptions = { headers: signatures.headers };
-                        console.log(`[TikTok] ✅ Firmas interceptadas correctamente, intentando conexión...`);
-                    }
-
-                    // Combinar con proxy rotativo si está disponible
-                    try {
-                        if (!proxyManager) {
-                            proxyManager = new ProxyManager();
-                            await proxyManager.fetchFreeProxies();
-                        }
-                        const proxyAgent = proxyManager.getNextProxyAgent();
-                        if (proxyAgent) {
-                            level4Cfg.clientOptions = level4Cfg.clientOptions || {};
-                            level4Cfg.clientOptions.agent = proxyAgent;
-                            console.log(`[TikTok] 🌍 Proxy rotativo inyectado como capa adicional`);
-                        }
-                    } catch (proxyErr) {
-                        console.warn(`[TikTok] ⚠️ Proxy no disponible, continuando sin proxy: ${proxyErr.message}`);
-                    }
-
-                    const result4 = await tryConnect(level4Cfg);
-                    connector = result4.connector;
-                    roomState = result4.roomState;
-                    logConnection(username, 'headless_bypass', 'success');
-                    console.log(`[TikTok] ✅ Conexión exitosa a @${username} mediante Chrome Headless (Nivel 4)`);
-                } catch (err4) {
-                    logConnection(username, 'headless_bypass', 'failed', err4.message);
-                    console.error(`[TikTok] ❌ Fallo Nivel 4 Chrome Headless (@${username}): ${err4.message}`);
-                    handleConnectionError(err4.message || err1.message);
+                    console.error(`[TikTok] ❌ Fallo Bypass Euler (@${username}): ${err3.message}`);
+                    handleConnectionError(err3.message);
                     return;
                 }
+            } else {
+                // No hay Euler, y los demás fallaron
+                handleConnectionError(err1.message);
+                return;
             }
         }
     }
@@ -557,11 +473,6 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
              errMsg = 'El usuario no está en vivo o no existe. Verifica el usuario.';
              // No insistir mucho si no está en vivo
              session.maxReconnectAttempts = 3; 
-        }
-
-        // Ocultar URLs y errores de Euler Stream
-        if (errMsg.includes('rate_limit') || errMsg.includes('eulerstream') || errMsg.includes('Too many connections') || errMsg.includes('SIGN SERVER MESSAGE')) {
-             errMsg = 'Error de límite de conexión. Por favor, intenta de nuevo más tarde.';
         }
 
         broadcastToUserRoom(username, 'tiktok:status', { connected: false, error: errMsg });
@@ -591,15 +502,6 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
         const giftName  = data.giftName  || safeGiftDetails.giftName  || 'Unknown Gift';
         const giftId    = data.giftId    || safeGiftDetails.id        || 0;
         const diamondCount = data.diamondCount || safeGiftDetails.diamondCount || 0;
-        const repeatCount = data.repeatCount || 1;
-        const totalValue = diamondCount * repeatCount;
-        
-        const session = activeSessions.get(username);
-        if (session) {
-            session.diamondsReceived += totalValue;
-            updateHistoryStats(username, session.viewers, totalValue);
-        }
-
         const giftImage = data.giftPictureUrl ||
             (safeGiftDetails.giftImage?.url?.[0]) ||
             (safeGiftDetails.icon?.url?.[0]) ||
@@ -654,7 +556,6 @@ async function connectToTikTokPersistent(username, manual = false, sessionId = '
     connector.on('member', (data) => {
         const viewers = data.viewerCount || 0;
         session.viewers = viewers;
-        updateHistoryStats(username, viewers, 0); // Update max viewers and duration
         broadcastToUserRoom(username, 'tiktok:viewers', { viewers });
     });
 
@@ -725,19 +626,6 @@ io.on('connection', (socket) => {
 
         const cleanUsername = username.trim().replace('@', '');
         console.log(`[WS] 📡 Solicitud de conexión de ${socket.id} para @${cleanUsername}`);
-
-        const lowerUsername = cleanUsername.toLowerCase();
-        if (blockedCreators.includes(lowerUsername)) {
-            console.log(`[WS] ⛔ Conexión rechazada: el usuario ${cleanUsername} está bloqueado.`);
-            socket.emit('tiktok:connect:response', { 
-                connected: false, 
-                error: { 
-                    info: 'BLACKLISTED', 
-                    message: '¿que pasa ? no estas registrado con nuestra agencia , solicitalo al interno de samyflw gracias para poderlo usar.' 
-                } 
-            });
-            return;
-        }
 
         // Desuscribir de cualquier otra sala anterior
         if (socket.currentRoom) {
@@ -819,7 +707,7 @@ io.on('connection', (socket) => {
  * Persiste entre reinicios de Render leyendo el archivo JSON directamente.
  */
 app.get('/api/gifts', (req, res) => {
-    const BACKEND_BASE = process.env.VPS_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+    const BACKEND_BASE = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
     // Leer la BD del archivo (fuente de verdad persistente)
     let dbGifts = {};
@@ -842,7 +730,7 @@ app.get('/api/gifts', (req, res) => {
         .map(g => {
             let image = '';
             if (g.localImage) {
-                image = g.localImage;
+                image = g.localImage.startsWith('http') ? g.localImage : `${BACKEND_BASE}${g.localImage}`;
             } else if (g.imageUrl) {
                 image = g.imageUrl;
             }
@@ -975,78 +863,6 @@ app.post('/api/gifts/download-images', async (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
-});
-
-// ─── ADMIN API ───────────────────────────────────────────────────────────────
-
-app.post('/api/admin/login', (req, res) => {
-    const { username, password } = req.body;
-    if (username === 'nenegro' && password === 'eider1666') {
-        res.json({ success: true, token: 'admin-auth-token-str' });
-    } else {
-        res.status(401).json({ success: false, message: 'Credenciales incorrectas' });
-    }
-});
-
-function adminAuth(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    if (authHeader === 'Bearer admin-auth-token-str') {
-        next();
-    } else {
-        res.status(403).json({ success: false, message: 'No autorizado' });
-    }
-}
-
-app.get('/api/admin/blacklist', adminAuth, (req, res) => {
-    res.json({ success: true, blacklist: blockedCreators });
-});
-
-app.post('/api/admin/blacklist', adminAuth, (req, res) => {
-    const { username } = req.body;
-    if (!username) return res.status(400).json({ success: false, message: 'Falta username' });
-    
-    const cleanUser = username.trim().toLowerCase().replace('@', '');
-    if (!blockedCreators.includes(cleanUser)) {
-        blockedCreators.push(cleanUser);
-        saveBlacklist();
-        
-        // Desconectar al usuario si está en vivo
-        const session = activeSessions.get(cleanUser) || activeSessions.get(username.trim().replace('@', ''));
-        if (session) {
-            session.stopping = true;
-            stopTikTokSession(session.username);
-            broadcastToUserRoom(session.username, 'tiktok:status', { connected: false });
-            broadcastToUserRoom(session.username, 'tiktok:connect:response', { 
-                connected: false, 
-                error: { info: 'BLACKLISTED', message: '¿que pasa ? no estas registrado con nuestra agencia , solicitalo al interno de samyflw gracias para poderlo usar.' } 
-            });
-        }
-    }
-    res.json({ success: true, blacklist: blockedCreators });
-});
-
-app.delete('/api/admin/blacklist/:username', adminAuth, (req, res) => {
-    const cleanUser = req.params.username.trim().toLowerCase().replace('@', '');
-    blockedCreators = blockedCreators.filter(u => u !== cleanUser);
-    saveBlacklist();
-    res.json({ success: true, blacklist: blockedCreators });
-});
-
-app.get('/api/admin/monitor', adminAuth, (req, res) => {
-    const onlineUsers = Array.from(activeSessions.entries())
-        .filter(([, s]) => s.isConnected)
-        .map(([un, s]) => ({
-            username: un,
-            viewers: s.viewers,
-            diamonds: s.diamondsReceived,
-            playTimeMs: Date.now() - s.connectedAt
-        }));
-
-    res.json({ 
-        success: true, 
-        onlineUsers,
-        history: connectionHistory 
-    });
 });
 
 // ─── ARRANCAR SERVIDOR ────────────────────────────────────────────────────────
